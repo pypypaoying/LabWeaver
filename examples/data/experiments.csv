@@ -1,0 +1,7 @@
+run_name,temperature_c,loss,epoch_count,approved,note
+baseline,20,0.8,10,true,初始实验
+variant_a,25,6.2e-1,15,false,调整参数
+variant_b,30,0.55,20,true,
+variant_c,22,,12,false,NA
+variant_d,28,0.48,25,true,NULL
+variant_e,24,0.52,18,false,复测
