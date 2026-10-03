@@ -21,6 +21,7 @@ jobs:
         python: ['3.11', '3.12']
     env:
       LANGSMITH_TRACING: 'false'
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,10 +36,8 @@ jobs:
         run: uv sync --locked --python ${{ matrix.python }}
       - name: Run offline tests
         run: uv run --frozen pytest -q
-      - name: Verify standalone profiling
-        run: uv run --frozen labweaver profile --csv examples/data/survey.csv
-      - name: Verify offline intake across data structures
-        run: |
-          uv run --frozen labweaver intake --csv examples/data/survey.csv --task-file examples/tasks/survey.txt --offline
-          uv run --frozen labweaver intake --csv examples/data/experiments.csv --task-file examples/tasks/experiments.txt --offline
+      - name: Verify config-driven offline intake
+        run: uv run --frozen labweaver intake --offline
+      - name: Verify experimental-data intake overrides
+        run: uv run --frozen labweaver intake --csv examples/data/experiments.csv --task-file examples/tasks/experiments.txt --offline
 

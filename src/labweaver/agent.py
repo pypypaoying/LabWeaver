@@ -242,7 +242,7 @@ _ERROR_MESSAGES = {
     "profile_failed": "The CSV profile did not complete with a valid result.",
     "profile_output_too_large": (
         "The profile exceeds the Agent's 64 KiB JSON limit. Retry with --sample-rows 0; "
-        "use the standalone profile command if the metadata is still too large."
+        "or set sample_rows = 0 in intake configuration. Reduce CSV metadata if still too large."
     ),
     "tool_execution_failed": "The profile tool call failed.",
     "invalid_tool_configuration": "The intake tool allowlist could not be configured.",

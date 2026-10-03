@@ -4,7 +4,7 @@ LabWeaver 面向课程、数模和初步科研中的表格数据任务。当前�
 
 ```mermaid
 flowchart LR
-    U[任务说明与本地 CSV] --> C[CLI 与模型配置]
+    U[任务说明与本地 CSV] --> C[VS Code 或 CLI 与共享配置]
     C --> A[Deep Agents 接入 Agent]
     A --> G[应用工具白名单与调用预算]
     G --> P[只读 profile_csv]
@@ -15,6 +15,8 @@ flowchart LR
 ```
 
 ## 职责
+
+`run_config.py` 按内置默认、公开 TOML、本地 TOML、入口覆盖的顺序解析运行设置；`runtime/intake.py` 共用任务读取、模型选择和记录保存流程。CLI 只提供 intake；`run_labweaver.py` 是 VS Code 直接运行入口。模型凭据仍由 `config.py` 读取，离线模式不读取凭据。
 
 - CSV 工具按列位置处理任意表头，独立计算真实统计；它不依赖模型，也不修改源文件。
 - Agent 解释任务与数据，提出待确认事项；文件通过调用方绑定，模型不能自行选择其他文件。
@@ -36,6 +38,8 @@ Agent 的 `awaiting_confirmation` 表示已取得概览、正在等待用户确�
 4. 加入持久化阶段状态与恢复验证，明确区分保存记录和恢复运行。
 
 每一步先保留当前单 Agent 基线，用不同表结构和真实任务评估增量收益。micrograd 检查作为历史原型，不是新产品的用户范围。
+
+已确认的下一轮实现范围见 [第三天开发计划](day3.md)；资料检索、引用与 Markdown 简报目前尚未实现。
 
 ## 参考
 

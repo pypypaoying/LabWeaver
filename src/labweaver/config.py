@@ -19,11 +19,13 @@ class ModelConfig:
     timeout: float = 30.0
 
 
-def load_config(env_file: str | Path | None = None) -> ModelConfig:
-    path = Path(env_file) if env_file is not None else Path(".env")
+def load_config(
+    env_file: str | Path | None = None, *, use_default_env: bool = True
+) -> ModelConfig:
+    path = Path(env_file) if env_file is not None else (Path(".env") if use_default_env else None)
     if env_file is not None and not path.is_file():
         raise ConfigurationError("The selected configuration file does not exist.")
-    values = dotenv_values(path) if path.is_file() else {}
+    values = dotenv_values(path) if path is not None and path.is_file() else {}
 
     def setting(name: str) -> str:
         return str(os.environ.get(name, values.get(name) or "")).strip()

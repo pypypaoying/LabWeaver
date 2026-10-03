@@ -1,41 +1,39 @@
-"""Command-line entry points for direct profiling and evidence-based intake."""
+"""Configuration-driven command-line entry point for evidence-based intake."""
 
 import argparse
 import json
 from pathlib import Path
 import sys
 
-from labweaver.config import ConfigurationError, create_model, load_config
-from labweaver.runtime.records import save_run
-from labweaver.tools.csv_profile import profile_csv
+from labweaver.config import ConfigurationError
+from labweaver.run_config import _normalize_delimiter, load_intake_config
 
 
 def _delimiter(value: str) -> str:
-    result = "\t" if value in {"\\t", "tab"} else value
-    if len(result) != 1 or result in {"\n", "\r", '"'}:
-        raise argparse.ArgumentTypeError("Use one delimiter character, or 'tab'.")
-    return result
+    try:
+        return _normalize_delimiter(value)
+    except ConfigurationError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="LabWeaver data-project intake agent")
     parser.add_argument("--version", action="version", version="LabWeaver 0.1.0")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("profile", "intake"):
-        command = commands.add_parser(name)
-        command.add_argument("--csv", required=True, type=Path)
-        command.add_argument("--encoding", default="utf-8-sig")
-        command.add_argument("--delimiter", default=",", type=_delimiter)
-        command.add_argument("--sample-rows", default=5, type=int)
-        command.add_argument("--output-dir", default="runs", type=Path)
-        if name == "intake":
-            task = command.add_mutually_exclusive_group(required=True)
-            task.add_argument("--task")
-            task.add_argument("--task-file", type=Path)
-            mode = command.add_mutually_exclusive_group(required=True)
-            mode.add_argument("--offline", action="store_true")
-            mode.add_argument("--live", action="store_true")
-            command.add_argument("--env-file", type=Path)
+    command = commands.add_parser("intake")
+    command.add_argument("--config", type=Path)
+    command.add_argument("--csv", type=Path)
+    command.add_argument("--encoding")
+    command.add_argument("--delimiter", type=_delimiter)
+    command.add_argument("--sample-rows", type=int)
+    command.add_argument("--output-dir", type=Path)
+    task = command.add_mutually_exclusive_group()
+    task.add_argument("--task")
+    task.add_argument("--task-file", type=Path)
+    mode = command.add_mutually_exclusive_group()
+    mode.add_argument("--offline", action="store_const", const="offline", dest="mode")
+    mode.add_argument("--live", action="store_const", const="live", dest="mode")
+    command.add_argument("--env-file", type=Path)
     return parser
 
 
@@ -45,25 +43,13 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     args = build_parser().parse_args(argv)
-    options = {"encoding": args.encoding, "delimiter": args.delimiter, "sample_rows": args.sample_rows}
+    overrides = {key: value for key, value in vars(args).items()
+                 if key not in {"command", "config"} and value is not None}
     try:
-        if args.command == "profile":
-            report = {"stage": "profile", **profile_csv(args.csv, **options)}
-        else:
-            from labweaver.agent import run_intake
+        from labweaver.runtime.intake import execute_intake
 
-            task = args.task if args.task is not None else args.task_file.read_text(encoding="utf-8-sig")
-            if not task.strip():
-                raise ConfigurationError("The task description must not be empty.")
-            if args.offline:
-                from labweaver.offline import OfflineIntakeModel
-
-                model = OfflineIntakeModel()
-            else:
-                model = create_model(load_config(args.env_file))
-            report = run_intake(task, args.csv, model, **options)
-            report["mode"] = "offline" if args.offline else "live"
-        saved = save_run(report, args.output_dir)
+        config = load_intake_config(args.config, overrides=overrides)
+        report, saved = execute_intake(config)
     except ConfigurationError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -72,5 +58,5 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
     print(f"Run report saved: {saved}", file=sys.stderr)
-    return 0 if report.get("status") in {"completed", "awaiting_confirmation"} else 1
+    return 0 if report.get("status") == "awaiting_confirmation" else 1
 

@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+labweaver.local.toml
 .venv/
 .cache/
 __pycache__/

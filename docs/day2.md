@@ -1,6 +1,6 @@
 # 第二天开发记录：LabWeaver 接入基线
 
-日期：2026-10-02。英文名 LabWeaver，建议仓库名 `labweaver`；发布目标为 `pypypaoying/Agent-project`。
+日期：2026-10-02。英文名 LabWeaver；当前仓库为 [pypypaoying/LabWeaver](https://github.com/pypypaoying/LabWeaver)。下方验收数据保留第二天的实际结果。
 
 ## 完成的用户流程
 
@@ -60,11 +60,12 @@
 
 ## 复现命令
 
+2026-10-03 更新：用户入口只保留 intake，CSV 概览作为 Agent 内部工具使用。VS Code 与 CLI 共用 `labweaver.toml`；已有模型配置通过被 Git 忽略的 `labweaver.local.toml` 引用。默认在线，离线时只覆盖运行模式。本轮验收见 [入口更新记录](intake-entry-update.md)，下一轮内容见 [第三天计划](day3.md)。
+
 ```shell
 uv sync --locked --python 3.11
 uv run --frozen pytest -q
-uv run labweaver profile --csv examples/data/survey.csv
-uv run labweaver intake --csv examples/data/survey.csv --task "分析问卷数据" --offline
+uv run labweaver intake --offline
 uv run labweaver intake --csv examples/data/experiments.csv --task-file examples/tasks/experiments.txt --offline
-uv run labweaver intake --csv examples/data/survey.csv --task-file examples/tasks/survey.txt --live --env-file /path/to/existing.env
+uv run labweaver intake
 ```

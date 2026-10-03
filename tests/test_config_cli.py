@@ -13,6 +13,8 @@ from labweaver.runtime.records import save_run
 def isolated_model_environment(monkeypatch):
     for name in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL_ID", "LLM_TIMEOUT"):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("LANGSMITH_TRACING", "false")
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
 
 
 def test_config_requires_explicit_model(tmp_path, monkeypatch):
@@ -64,22 +66,25 @@ def test_run_artifacts_are_strict_json_and_do_not_replace(tmp_path):
         save_run({"value": float("nan")}, tmp_path)
 
 
-def test_profile_cli_runs_without_api_and_keeps_source(tmp_path, capsys):
+def test_intake_cli_runs_offline_and_keeps_source(tmp_path, capsys):
     csv = tmp_path / "table.csv"
     csv.write_text("group,value\nA,2\nB,4\n", encoding="utf-8")
     original = hashlib.sha256(csv.read_bytes()).hexdigest()
     runs = tmp_path / "runs"
-    assert main(["profile", "--csv", str(csv), "--output-dir", str(runs)]) == 0
+    assert main(["intake", "--csv", str(csv), "--task", "检查数据并确认分析方向", "--offline",
+                 "--output-dir", str(runs)]) == 0
     output = capsys.readouterr()
     report = json.loads(output.out)
-    assert report["row_count"] == 2
-    assert report["column_count"] == 2
+    assert report["status"] == "awaiting_confirmation"
+    assert report["profile"]["row_count"] == 2
+    assert report["profile"]["column_count"] == 2
     assert hashlib.sha256(csv.read_bytes()).hexdigest() == original
     assert len(list(runs.glob("*.json"))) == 1
 
 
-def test_profile_cli_reports_read_failure(tmp_path, capsys):
-    assert main(["profile", "--csv", str(tmp_path / "missing.csv"), "--output-dir", str(tmp_path / "runs")]) == 1
+def test_intake_cli_reports_csv_read_failure(tmp_path, capsys):
+    assert main(["intake", "--csv", str(tmp_path / "missing.csv"), "--task", "检查数据", "--offline",
+                 "--output-dir", str(tmp_path / "runs")]) == 1
     report = json.loads(capsys.readouterr().out)
     assert report["status"] == "error"
 
@@ -112,10 +117,102 @@ def test_encoding_and_delimiter_cli(tmp_path, capsys):
     csv = tmp_path / "chinese.csv"
     csv.write_bytes("组别;数值\n甲;2\n乙;4\n".encode("gb18030"))
     assert main([
-        "profile", "--csv", str(csv), "--encoding", "gb18030", "--delimiter", ";",
+        "intake", "--csv", str(csv), "--task", "比较组别", "--offline",
+        "--encoding", "gb18030", "--delimiter", ";",
         "--output-dir", str(tmp_path / "runs"),
     ]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["columns"][0]["name"] == "组别"
-    assert report["row_count"] == 2
+    assert report["profile"]["columns"][0]["name"] == "组别"
+    assert report["profile"]["row_count"] == 2
+
+
+def test_removed_profile_command_is_rejected(capsys):
+    with pytest.raises(SystemExit) as caught:
+        main(["profile"])
+    assert caught.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_cli_version_stays_available(capsys):
+    with pytest.raises(SystemExit) as caught:
+        main(["--version"])
+    assert caught.value.code == 0
+    assert capsys.readouterr().out.strip() == "LabWeaver 0.1.0"
+
+
+def test_cli_can_run_intake_with_only_configuration(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data.csv").write_text("组别,得分\n甲,2\n乙,4\n", encoding="utf-8")
+    (tmp_path / "labweaver.toml").write_text(
+        '[intake]\ncsv = "data.csv"\ntask = "先确认问卷分析方向"\nmode = "offline"\n',
+        encoding="utf-8",
+    )
+    assert main(["intake"]) == 0
+    output = capsys.readouterr()
+    report = json.loads(output.out)
+    assert report["status"] == "awaiting_confirmation"
+    assert report["task"] == "先确认问卷分析方向"
+    assert report["profile"]["columns"][0]["name"] == "组别"
+    assert "Run report saved:" in output.err
+    assert len(list((tmp_path / "runs").glob("*.json"))) == 1
+
+
+def test_explicit_missing_intake_config_is_clear(tmp_path, capsys):
+    assert main(["intake", "--config", str(tmp_path / "absent.toml"), "--offline"]) == 2
+    assert "configuration file does not exist" in capsys.readouterr().err
+
+
+def test_cli_missing_task_file_is_clear(tmp_path, capsys):
+    csv = tmp_path / "table.csv"
+    csv.write_text("value\n1\n", encoding="utf-8")
+    assert main(["intake", "--csv", str(csv), "--task-file", str(tmp_path / "absent.txt"),
+                 "--offline", "--output-dir", str(tmp_path / "runs")]) == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert not list(tmp_path.glob("runs/*.json"))
+
+
+def test_cli_overrides_config_and_paths_follow_cwd(tmp_path, monkeypatch, capsys):
+    config_dir = tmp_path / "project"
+    config_dir.mkdir()
+    (config_dir / "labweaver.toml").write_text(
+        '[intake]\ncsv = "missing.csv"\ntask_file = "missing-task.txt"\nmode = "live"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "selected.csv").write_text("condition,value\nA,2\n", encoding="utf-8")
+    assert main(["intake", "--config", "project/labweaver.toml", "--csv", "selected.csv",
+                 "--task", "覆盖文件任务", "--offline", "--output-dir", "results"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["task"] == "覆盖文件任务"
+    assert report["source"]["name"] == "selected.csv"
+    assert len(list((tmp_path / "results").glob("*.json"))) == 1
+    assert not (config_dir / "results").exists()
+
+
+def test_cli_success_requires_awaiting_confirmation(tmp_path, monkeypatch, capsys):
+    import labweaver.runtime.intake as intake_runtime
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(intake_runtime, "execute_intake", lambda config: (
+        {"status": "completed"}, tmp_path / "record.json",
+    ))
+    assert main(["intake", "--offline"]) == 1
+    assert json.loads(capsys.readouterr().out)["status"] == "completed"
+
+
+@pytest.mark.parametrize("arguments", [
+    ["--task", "one", "--task-file", "two.txt"],
+    ["--offline", "--live"],
+])
+def test_cli_conflicting_task_or_mode_is_rejected(arguments):
+    with pytest.raises(SystemExit) as caught:
+        main(["intake", *arguments])
+    assert caught.value.code == 2
+
+
+def test_cli_negative_sample_count_is_config_error(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main(["intake", "--offline", "--sample-rows", "-1"]) == 2
+    assert "nonnegative integer" in capsys.readouterr().err
 
