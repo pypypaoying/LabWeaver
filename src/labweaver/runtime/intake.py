@@ -37,6 +37,14 @@ def execute_intake(config: IntakeConfig) -> tuple[dict, Path]:
         encoding=config.encoding,
         delimiter=config.delimiter,
         sample_rows=config.sample_rows,
+        material_paths=config.material_paths,
     )
     report["mode"] = config.mode
-    return report, save_run(report, config.output_dir)
+    with_brief = bool(config.material_paths) and (
+        report.get("status") == "awaiting_confirmation"
+        and report.get("materials_completed") is True
+    )
+    saved = save_run(report, config.output_dir, with_brief=with_brief)
+    if with_brief:
+        report["brief_path"] = str(saved.with_suffix(".md").resolve())
+    return report, saved

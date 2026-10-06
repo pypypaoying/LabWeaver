@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import socket
+import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -20,8 +21,9 @@ def _load_direct_runner():
     return module
 
 
+@pytest.mark.parametrize("material_override", [None, []], ids=["D3-default-materials", "D2-no-materials"])
 def test_direct_runner_resolves_project_config_from_another_cwd_offline(
-    tmp_path, monkeypatch, capsys,
+    tmp_path, monkeypatch, capsys, material_override,
 ):
     # Even a machine with tracing/model variables must not contact an API here.
     monkeypatch.setenv("LANGSMITH_TRACING", "false")
@@ -35,6 +37,12 @@ def test_direct_runner_resolves_project_config_from_another_cwd_offline(
     monkeypatch.setattr(runner, "OVERRIDES", {
         "mode": "offline", "output_dir": str(output_dir),
     })
+    monkeypatch.setattr(runner, "MATERIAL_PATHS", material_override)
+    from labweaver.run_config import load_intake_config
+
+    selected = load_intake_config(runner.CONFIG_PATH, overrides={"mode": "offline"})
+    materials = selected.material_paths if material_override is None else ()
+    material_hashes = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in materials}
     unrelated_directory = tmp_path / "unrelated-cwd"
     unrelated_directory.mkdir()
     monkeypatch.chdir(unrelated_directory)
@@ -72,11 +80,26 @@ def test_direct_runner_resolves_project_config_from_another_cwd_offline(
     assert report["profile_completed"] is True
     assert report["profile"]["row_count"] == 8
     assert report["profile"]["column_count"] == 5
-    assert report["model_calls"] == 2
-    assert report["tool_attempts"] == 1
-    assert len(report["execution_ledger"]) == 1
+    assert report["model_calls"] == (3 if materials else 2)
+    assert report["tool_attempts"] == (2 if materials else 1)
+    assert sum(item["name"] == "profile_csv" for item in report["execution_ledger"]) == 1
+    if materials:
+        assert report["materials_completed"] is True
+        assert len(report["retrieval_queries"]) == 1
+        assert sum(item["name"] == "search_materials" for item in report["execution_ledger"]) == 1
+        assert report["citations"]
+        assert report["brief_path"] == str(records[0].with_suffix(".md"))
+        brief = records[0].with_suffix(".md").read_text(encoding="utf-8")
+        assert all(f"[{citation}]" in brief for citation in report["citations"])
+    else:
+        assert len(report["execution_ledger"]) == 1
+        assert report.get("retrieval_queries", []) == []
+        assert "brief_path" not in report
+        assert not records[0].with_suffix(".md").exists()
     assert report["source"] == {"name": "survey.csv", "sha256": source_hash}
     assert hashlib.sha256(csv_path.read_bytes()).hexdigest() == source_hash
+    assert all(hashlib.sha256(path.read_bytes()).hexdigest() == digest
+               for path, digest in material_hashes.items())
     assert report["run_id"] and report["recorded_at"]
     assert credential_reads == []
     assert network_attempts == []

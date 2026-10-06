@@ -2,7 +2,7 @@
 
 [![Offline verification](https://github.com/pypypaoying/LabWeaver/actions/workflows/tests.yml/badge.svg)](https://github.com/pypypaoying/LabWeaver/actions/workflows/tests.yml)
 
-**从任务说明和 CSV 开始，整理数据概览、分析方向与待确认问题。**
+**结合任务说明、CSV 与项目资料，生成带出处的分析方案和待确认问题。**
 
 LabWeaver 面向开展课程项目、数模或初步科研的大学生与初级研究人员。用户已有数据，但尚未明确字段含义、缺失口径和分析目标；Agent 先检查实际数据，再提出下一步的候选方向。同一工具适用于问卷、实验记录等不同表结构，无需为每份 CSV 改代码。
 
@@ -10,12 +10,13 @@ LabWeaver 面向开展课程项目、数模或初步科研的大学生与初级�
 
 ## 当前能力
 
-- 单 Agent intake：实际执行只读 `profile_csv` 后，输出任务摘要、可开展的分析和待确认事项。
+- 单 Agent intake：先执行只读 `profile_csv`，再主动检索项目资料，输出带引用的任务方案。
+- 本地 RAG：UTF-8 TXT/Markdown、文字型 PDF，BM25 与中文分词，片段保留哈希和行号或页码。
 - 通用 CSV 工具：行列数、逐列缺失、推断类型、有限数值摘要和最多五行原始样例。
-- 应用 Harness：绑定本次文件、工具白名单、调用预算、工具消息与执行账本配对。
+- 应用 Harness：文件绑定、工具白名单、先概览后检索、独立调用预算、多工具结果配对与引用校验。
 - VS Code 与 CLI 共用运行配置；在线模型和确定性离线验证分别标记，保存严格 JSON 证据。
 
-用户入口只保留 `intake`，CSV 概览属于 Agent 的内部工具。成功终态为 `awaiting_confirmation`。资料 RAG、多智能体、清洗、分析执行、图表和 checkpoint 恢复尚未实现；[第三天计划](docs/day3.md) 已确认，留到下一开发轮实施。
+用户入口只保留 `intake`，成功终态为 `awaiting_confirmation`。D3 资料辅助规划已实现，成功时保存 JSON 和 Markdown 简报。多智能体、清洗、分析执行、图表和 checkpoint 恢复仍属后续能力。详见 [第三天实现](docs/day3.md)。
 
 ## 首次安装
 
@@ -32,7 +33,7 @@ uv sync --locked --python 3.11
 安装依赖后，平时无需输入运行命令：
 
 1. 用 VS Code 打开整个项目文件夹，选择项目 `.venv` 的 Python 解释器。
-2. 修改根目录 `labweaver.toml` 中的 CSV、任务文件和模式。
+2. 修改根目录 `labweaver.toml` 中的 CSV、任务文件、materials 资料列表和模式。
 3. 在项目 `.env` 填写模型配置，或在被 Git 忽略的 `labweaver.local.toml` 中引用已有配置文件。
 4. 打开 `run_labweaver.py`，点击 Python 扩展的 **Run Python File**；也可按 F5 选择 **LabWeaver: run intake**。
 
@@ -47,7 +48,12 @@ uv sync --locked --python 3.11
 ```toml
 [intake]
 csv = "examples/data/survey.csv"
-task_file = "examples/tasks/survey.txt"
+task_file = "examples/tasks/survey_rag.txt"
+materials = [
+  "examples/materials/survey/requirements.md",
+  "examples/materials/survey/variables.txt",
+  "examples/materials/survey/methods.pdf",
+]
 mode = "live"
 encoding = "utf-8-sig"
 delimiter = ","
@@ -55,7 +61,7 @@ sample_rows = 5
 output_dir = "runs"
 ```
 
-任务可用 `task = "比较不同组别的测量结果"` 替代 `task_file`，同一配置层内不能同时设置两项。中文 GB18030 文件可设置 `encoding = "gb18030"`；分号用 `delimiter = ";"`，制表符用 `delimiter = "tab"`。默认不猜测编码或分隔符。
+任务可用 `task = "比较不同组别的测量结果"` 替代 `task_file`，同一配置层内不能同时设置两项。`materials = []` 保留 D2 的纯 CSV 流程。`run_labweaver.py` 的 `MATERIAL_PATHS = None` 继承 TOML，列表可临时覆盖，空列表关闭资料检索。中文 GB18030 CSV 可设置 `encoding = "gb18030"`；该设置不改变 TXT/MD 资料必须采用 UTF-8 的要求。分隔符可用 `";"` 或 `"tab"`，默认不猜测。
 
 配置优先级为：**入口覆盖 > 同目录的 labweaver.local.toml > 公开 TOML > 内置默认值**。TOML 内相对路径以该文件目录为基准；CLI 覆盖路径以当前目录为基准。CLI 默认读取当前目录的 `labweaver.toml`；未找到时使用内置默认值，显式选择的配置文件不存在则报错。
 
@@ -96,14 +102,24 @@ uv run labweaver intake --offline
 
 ```shell
 uv run labweaver intake --config /path/to/labweaver.toml
-uv run labweaver intake --csv examples/data/experiments.csv --task-file examples/tasks/experiments.txt --offline
+uv run labweaver intake --config examples/configs/experiments.toml
 ```
 
-CLI 将结果 JSON 写到标准输出，运行记录位置写到标准错误；选项可通过 `uv run labweaver intake --help` 查看。`--offline` 和 `--live` 可覆盖配置中的模式；`--env-file` 可临时覆盖凭据文件路径。
+CLI 将结果 JSON 写到标准输出，运行记录位置写到标准错误；选项可通过 `uv run labweaver intake --help` 查看。`--material` 可重复传入以替换资料集合；`--offline` 和 `--live` 覆盖模式；`--env-file` 覆盖凭据文件路径。实验示例配置默认离线；在线使用该配置时，凭据应位于所选配置目录、由环境变量提供，或显式覆盖 env_file。
 
 离线模式是确定性测试模型：通过真实 Deep Agents 流程调用工具，接收匹配的工具消息后回答，不发出网络请求；它不代表真实 LLM 理解能力。
 
-在线使用支持 Chat Completions 工具调用的 OpenAI 兼容接口。每次请求默认超时 30 秒、禁止自动重试；每次 intake 最多 3 次模型调用、1 次工具尝试。接口不支持工具调用、连接失败或证据不匹配时返回 `error`。任务、字段统计和样例会发送到所配置的接口；设置 `sample_rows = 0` 或覆盖 `--sample-rows 0` 可关闭样例。
+在线使用支持 Chat Completions 工具调用的 OpenAI 兼容接口。每次请求默认超时 30 秒、禁止自动重试；有资料时最多 5 次模型调用、1 次 CSV 和 2 次检索，图步数 16；无资料时保持 3 次模型调用和 1 次 CSV。接口不支持工具调用、连接失败或证据不匹配返回 `error`。任务、统计、样例、资料标识与检索命中原文会发送到所配置的接口；`sample_rows = 0` 可关闭 CSV 样例。
+
+## 不用命令行检验 D3
+
+打开根目录 `verify_d3.py`，选择项目解释器并点击 **Run Python File**。它禁用网络、无需模型密钥，检查七个标注查询、问卷/实验/替代资料/无答案的真实 Agent 流程、文件哈希和简报保存；全部通过显示 12 项 PASS。
+
+在线检验仍运行 `run_labweaver.py`，保持 `mode = "live"`。成功应满足 `status = "awaiting_confirmation"`、`materials_completed = true`，执行账本先 profile_csv 后 search_materials，引用 ID 来自 retrieved_chunks；控制台显示同 stem JSON 与 Markdown 路径。默认问卷 8×5，实验 6×6。
+
+仅有正确引用 ID 不代表建议逐句正确。请检查方法是否符合资料要求；把问卷 requirements.md 换成 requirements_alternative.md，再用同一 CSV 运行，应出现总体分布目标和部门比较目标的冲突，而数据统计保持一致。
+
+VS Code 测试面板已配置 pytest，可点击运行全部测试。完整步骤和真实验收见 [D3 结果与检验方法](docs/day3-results.md)。
 
 ## CSV 工具规则
 
@@ -126,9 +142,9 @@ CLI 将结果 JSON 写到标准输出，运行记录位置写到标准错误；�
 
 ## Harness 与证据
 
-模型可见、可执行工具只有绑定本次文件的 `profile_csv`，模型不能传路径。应用中间件过滤 Deep Agents 内置文件、规划与委派工具，执行边界拒绝白名单外请求；自动摘要与结果卸载关闭。
+模型首次只见 `profile_csv`；概览成功后有资料时才开放 `search_materials(query)`。两个工具都绑定本次输入，模型不能传文件路径。中间件过滤 Deep Agents 内置文件、规划与委派工具，执行边界拒绝白名单外请求；自动摘要和结果卸载关闭。
 
-成功要求：恰好一次实际概览执行、工具调用 ID 与 ToolMessage 匹配、消息结果等于执行账本、概览完成、存在最终 AI 回答。运行 JSON 保存任务、文件名和 SHA-256、工具调用与结果、执行账本、调用次数和状态。未完整读取文件时哈希为 `null`。
+成功要求：恰好一次实际概览、全部工具调用 ID 与 ToolMessage/账本匹配、概览完成、存在最终回答。有资料时还要求实际检索、五部分输出和有效引用；无命中须明确资料不足。JSON 另保存资料哈希、查询、片段和引用；成功资料接入额外保存 Markdown 简报。未完整读取 CSV 时哈希为 `null`。
 
 证据校验验证执行过程；自然语言回答仍可能有误，应以 JSON 的 `profile` 字段统计为准。记录不具备 checkpoint 恢复能力。退出码：`0` 等待确认，`1` 受控执行失败，`2` 配置、任务读取或记录写入失败。
 
@@ -146,7 +162,9 @@ CLI 将结果 JSON 写到标准输出，运行记录位置写到标准错误；�
 | 真实 API | 1 次工具、2 次模型调用，awaiting_confirmation | 1 次工具、2 次模型调用，awaiting_confirmation |
 | 源文件 | 哈希未改变 | 哈希未改变 |
 
-原始验收见 [第二天记录](docs/day2.md)。本轮（2026-10-03）118 项测试及 28 个子用例通过，包构建成功；直接入口的真实 API 验证为 2 次模型调用、1 次工具执行、`awaiting_confirmation`，源 CSV 哈希未变。详情见 [入口更新记录](docs/intake-entry-update.md)，其中分别记录在线与离线结果。
+原始验收见 [第二天记录](docs/day2.md)。入口改造验收（2026-10-03）118 项测试及 28 个子用例通过，包构建成功；直接入口的真实 API 验证为 2 次模型调用、1 次工具执行、`awaiting_confirmation`，源 CSV 哈希未变。详情见 [入口更新记录](docs/intake-entry-update.md)。
+
+D3 验收（2026-10-07）：**247 项测试、28 个子用例通过**，一键离线验收 **12/12**，包构建成功。七个标注查询、四组离线接入及三组在线资料接入结果见 [D3 记录](docs/day3-results.md)。在线问卷更换资料后候选方案和冲突问题变化，数据统计与输入哈希一致；原始在线记录不发布。
 
 ```shell
 uv run --frozen pytest -q
@@ -159,11 +177,13 @@ uv build
 
 ```text
 run_labweaver.py       # VS Code 直接入口
+verify_d3.py           # 无网络、无需密钥的 D3 验收入口
 labweaver.toml        # 两种入口共用的公开配置
 src/labweaver/
   cli.py              # intake 参数覆盖与 JSON 输出
   run_config.py       # TOML 分层与路径、类型校验
   config.py           # 模型凭据、超时与 ChatOpenAI 适配
+  materials.py        # 资料解析、来源、BM25 检索
   tools/csv_profile.py # 独立只读的 CSV 统计
   agent.py            # Deep Agent、Harness、证据与状态
   offline.py          # 确定性离线工具循环
@@ -171,4 +191,4 @@ src/labweaver/
   runtime/records.py  # 严格 JSON 运行产物
 ```
 
-下一轮先完成可验证的单 Agent RAG 基线；再接入分析执行和核验子 Agent。详见 [第三天计划](docs/day3.md) 和 [架构路线](docs/architecture.md)。
+下一轮在用户确认后接入受控分析执行，再评估分析和核验子 Agent 的必要性。详见 [第三天实现](docs/day3.md) 和 [架构路线](docs/architecture.md)。

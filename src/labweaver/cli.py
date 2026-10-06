@@ -27,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--delimiter", type=_delimiter)
     command.add_argument("--sample-rows", type=int)
     command.add_argument("--output-dir", type=Path)
+    command.add_argument("--material", action="append", type=Path, dest="materials")
     task = command.add_mutually_exclusive_group()
     task.add_argument("--task")
     task.add_argument("--task-file", type=Path)
@@ -58,5 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
     print(f"Run report saved: {saved}", file=sys.stderr)
+    if report.get("brief_path"):
+        print(f"Task brief saved: {report['brief_path']}", file=sys.stderr)
     return 0 if report.get("status") == "awaiting_confirmation" else 1
 

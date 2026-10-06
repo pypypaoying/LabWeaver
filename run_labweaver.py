@@ -10,6 +10,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = PROJECT_ROOT / "labweaver.toml"
 # 通常修改 labweaver.toml 即可；临时覆盖示例：{"mode": "offline"}。
 OVERRIDES = {}
+# None 继承 TOML 的 materials；[] 暂停资料检索；列表可临时选择其他资料。
+MATERIAL_PATHS = None
 
 
 def main() -> int:
@@ -31,8 +33,12 @@ def main() -> int:
         return 2
 
     try:
-        config = load_intake_config(CONFIG_PATH, overrides=OVERRIDES)
+        overrides = dict(OVERRIDES)
+        if MATERIAL_PATHS is not None:
+            overrides["materials"] = MATERIAL_PATHS
+        config = load_intake_config(CONFIG_PATH, overrides=overrides)
         print(f"LabWeaver | 模式：{config.mode} | CSV：{config.csv_path.name}", flush=True)
+        print(f"任务资料：{len(config.material_paths)} 份", flush=True)
         print("正在运行 Agent，等待工具结果和模型回答……", flush=True)
         report, saved = execute_intake(config)
     except ConfigurationError as exc:
@@ -45,6 +51,14 @@ def main() -> int:
     print(f"运行状态：{report['status']}")
     print(f"模型调用：{report['model_calls']} 次；工具尝试：{report['tool_attempts']} 次")
     print(f"实际工具执行：{len(report['execution_ledger'])} 次")
+    retrieval_attempts = report.get("retrieval_attempts", sum(
+        item.get("kind") == "tool_call" and item.get("name") == "search_materials"
+        for item in report.get("trace", [])
+    ))
+    retrieval_executions = sum(
+        item.get("name") == "search_materials" for item in report["execution_ledger"]
+    )
+    print(f"资料检索：尝试 {retrieval_attempts} 次；实际执行 {retrieval_executions} 次")
     if report.get("profile"):
         profile = report["profile"]
         print(f"数据概览：{profile['row_count']} 行 × {profile['column_count']} 列")
@@ -56,6 +70,8 @@ def main() -> int:
     if report.get("final_answer"):
         print("\nAgent 回答：\n" + report["final_answer"])
     print(f"\n完整运行记录：{saved}")
+    if report.get("brief_path"):
+        print(f"任务简报：{report['brief_path']}")
     return 0 if report["status"] == "awaiting_confirmation" else 1
 
 

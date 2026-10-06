@@ -12,6 +12,9 @@ dependencies = [
     "deepagents>=0.7.20,<0.8",
     "langchain-openai>=1.6.6,<2",
     "python-dotenv>=1.1,<2",
+    "pypdf>=6,<7",
+    "rank-bm25>=0.2.2,<0.3",
+    "jieba>=0.42.1,<0.43",
 ]
 
 [project.scripts]

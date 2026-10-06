@@ -21,6 +21,7 @@ class IntakeConfig:
     delimiter: str
     sample_rows: int
     output_dir: Path
+    material_paths: tuple[Path, ...] = ()
 
 
 _DEFAULTS = {
@@ -31,9 +32,10 @@ _DEFAULTS = {
     "delimiter": ",",
     "sample_rows": 5,
     "output_dir": "runs",
+    "materials": [],
 }
 _KEYS = frozenset({"csv", "task", "task_file", "mode", "env_file", "encoding",
-                   "delimiter", "sample_rows", "output_dir"})
+                   "delimiter", "sample_rows", "output_dir", "materials"})
 _PATH_KEYS = frozenset({"csv", "task_file", "env_file", "output_dir"})
 
 
@@ -85,7 +87,11 @@ def _apply_layer(settings: dict, layer: dict, *, base: Path) -> None:
         raise ConfigurationError("Use either 'task' or 'task_file' within one configuration layer.")
     normalized = {}
     for key, value in layer.items():
-        if key in _PATH_KEYS:
+        if key == "materials":
+            if not isinstance(value, (list, tuple)):
+                raise ConfigurationError("Setting 'materials' must be an array of file paths.")
+            normalized[key] = tuple(_resolve_path(item, base, key) for item in value)
+        elif key in _PATH_KEYS:
             normalized[key] = _resolve_path(value, base, key)
         elif key == "sample_rows":
             if type(value) is not int or value < 0:
@@ -149,4 +155,5 @@ def load_intake_config(
         delimiter=settings["delimiter"],
         sample_rows=settings["sample_rows"],
         output_dir=settings["output_dir"],
+        material_paths=settings["materials"],
     )

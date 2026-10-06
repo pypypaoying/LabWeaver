@@ -26,6 +26,7 @@ def test_zero_argument_load_uses_builtins_when_default_file_is_missing(tmp_path,
     assert config.sample_rows == 5
     assert config.output_dir == tmp_path / "runs"
     assert config.env_file is None
+    assert config.material_paths == ()
     with pytest.raises(FrozenInstanceError):
         config.mode = "offline"
 
@@ -212,3 +213,54 @@ def test_overrides_must_be_a_mapping(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ConfigurationError, match="dictionary"):
         load_intake_config(overrides=[("mode", "offline")])
+
+
+def test_material_paths_follow_their_configuration_source(tmp_path, monkeypatch):
+    folder = tmp_path / "project"
+    folder.mkdir()
+    public = _toml(folder / "custom.toml", 'materials = ["requirements.md", "methods.pdf"]\n')
+    monkeypatch.chdir(tmp_path)
+    config = load_intake_config(public)
+    assert config.material_paths == (folder / "requirements.md", folder / "methods.pdf")
+    selected = load_intake_config(public, overrides={"materials": [Path("chosen.txt")]})
+    assert selected.material_paths == (tmp_path / "chosen.txt",)
+
+
+def test_local_materials_replace_public_and_empty_override_disables_retrieval(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _toml(tmp_path / "labweaver.toml", 'materials = ["public.md"]\n')
+    _toml(tmp_path / "labweaver.local.toml", 'materials = ["local.txt"]\n')
+    assert load_intake_config().material_paths == (tmp_path / "local.txt",)
+    assert load_intake_config(overrides={"materials": []}).material_paths == ()
+
+
+def test_material_configuration_does_not_read_source_files(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config = load_intake_config(overrides={"materials": ("not-created.pdf",)})
+    assert config.material_paths == (tmp_path / "not-created.pdf",)
+    assert not config.material_paths[0].exists()
+
+
+@pytest.mark.parametrize("value", ["one.md", None, False, {}, [None], [True], [""], [1]])
+def test_invalid_material_arrays_are_configuration_errors(tmp_path, monkeypatch, value):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ConfigurationError, match="materials"):
+        load_intake_config(overrides={"materials": value})
+
+
+def test_repeated_cli_materials_override_configuration_as_cwd_paths(tmp_path, monkeypatch, capsys):
+    from labweaver.cli import main
+    import labweaver.runtime.intake as intake_runtime
+
+    monkeypatch.chdir(tmp_path)
+    _toml(tmp_path / "labweaver.toml", 'materials = ["old.md"]\n')
+    observed = []
+
+    def observe(config):
+        observed.append(config)
+        return {"status": "awaiting_confirmation"}, tmp_path / "run.json"
+
+    monkeypatch.setattr(intake_runtime, "execute_intake", observe)
+    assert main(["intake", "--offline", "--material", "first.md", "--material", "second.pdf"]) == 0
+    capsys.readouterr()
+    assert observed[0].material_paths == (tmp_path / "first.md", tmp_path / "second.pdf")

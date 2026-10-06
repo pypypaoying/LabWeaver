@@ -1,12 +1,17 @@
 # Shared by VS Code and the intake CLI. Paths are relative to this file.
 [intake]
 csv = "examples/data/survey.csv"
-task_file = "examples/tasks/survey.txt"
+task_file = "examples/tasks/survey_rag.txt"
 mode = "live"
 encoding = "utf-8-sig"
 delimiter = ","
 sample_rows = 5
 output_dir = "runs"
+materials = [
+    "examples/materials/survey/requirements.md",
+    "examples/materials/survey/variables.txt",
+    "examples/materials/survey/methods.pdf",
+]
 
 # Model credentials default to .env beside this file, or LLM_* environment variables.
 # Never put credentials in this TOML.

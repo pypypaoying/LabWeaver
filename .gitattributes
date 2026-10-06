@@ -1,2 +1,4 @@
 * text=auto eol=lf
 
+# Preserve PDF bytes and xref offsets across Windows and Linux checkouts.
+*.pdf binary

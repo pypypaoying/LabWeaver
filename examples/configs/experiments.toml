@@ -1,0 +1,13 @@
+[intake]
+csv = "../data/experiments.csv"
+task_file = "../tasks/experiments_rag.txt"
+materials = [
+  "../materials/experiments/requirements.md",
+  "../materials/experiments/variables.txt",
+  "../materials/experiments/methods.md",
+]
+mode = "offline"
+encoding = "utf-8-sig"
+delimiter = ","
+sample_rows = 5
+output_dir = "../../runs"
