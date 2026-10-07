@@ -19,6 +19,25 @@
       "env": {
         "PYTHONUTF8": "1"
       }
+    },
+    {
+      "name": "LabWeaver: real CSV + PDF checks",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "linux": {
+        "python": "${workspaceFolder}/.venv/bin/python"
+      },
+      "osx": {
+        "python": "${workspaceFolder}/.venv/bin/python"
+      },
+      "program": "${workspaceFolder}/run_real_checks.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONUTF8": "1"
+      }
     }
   ]
 }

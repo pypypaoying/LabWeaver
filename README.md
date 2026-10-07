@@ -41,6 +41,8 @@ uv sync --locked --python 3.11
 
 控制台显示状态、模型调用、实际工具执行、数据规模与 Agent 回答；完整记录写入 `runs/`。直接入口按自身所在项目目录读取配置，不依赖终端当前目录。F5 提供 Windows、Linux 和 macOS 的项目虚拟环境路径；已安装的 Python 扩展负责 Run Python File。
 
+使用自己的文件做两项真实在线检验时，打开 `run_real_checks.py` 并点击 **Run Python File**。在集成终端输入 CSV、文字型 PDF 路径与自己的任务（也可输入 `@任务TXT路径`），入口会依次运行仅 CSV、CSV+PDF，分别保存结果，并检查实际统计一致、输入哈希不变和 PDF 引用。它使用既有模型配置，无需修改 Python；详细操作与验收条件见 [真实数据检验](docs/real-data-checks.md)。
+
 ## 运行配置
 
 `labweaver.toml` 是两种入口共用的公开默认值：
