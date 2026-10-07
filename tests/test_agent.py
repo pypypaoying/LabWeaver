@@ -1,25 +1,23 @@
-"""Offline checks of the real Agent loop and its evidence/budget boundaries."""
-
-from __future__ import annotations
+"""Task-level acceptance through real Deep Agents and LangGraph interrupts."""
 
 import copy
+import hashlib
 import json
 import socket
 from types import SimpleNamespace
-
+from pathlib import Path
 import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import Field, PrivateAttr
-
 from labweaver.agent import (
+    create_session,
+    run_intake,
     _IntakeHarness,
     _IntakeRejected,
     _validate_evidence,
-    run_intake,
 )
 from labweaver.offline import OfflineIntakeModel
-from labweaver.tools.csv_profile import profile_csv
 
 
 class ScriptedModel(OfflineIntakeModel):
@@ -29,289 +27,368 @@ class ScriptedModel(OfflineIntakeModel):
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         position = min(self._cursor, len(self.responses) - 1)
         self._cursor += 1
-        return ChatResult(generations=[ChatGeneration(message=self.responses[position])])
+        return ChatResult(
+            generations=[ChatGeneration(message=self.responses[position])]
+        )
 
 
-def _call(name="profile_csv", call_id="test-call-1", args=None):
-    return AIMessage(content="", tool_calls=[{
-        "name": name, "args": {} if args is None else args,
-        "id": call_id, "type": "tool_call",
-    }])
+def call(name="profile_csv", cid="p1", args=None):
+    return AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": name,
+                "args": {} if args is None else args,
+                "id": cid,
+                "type": "tool_call",
+            }
+        ],
+    )
+
+
+def answer(kind="summary", text="已按实际数据完成概览。"):
+    return AIMessage(
+        content=json.dumps(
+            {
+                "task_kind": kind,
+                "retrieval_reason": "CSV 足够完成本任务",
+                "answer": text,
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 @pytest.fixture(autouse=True)
-def _disable_tracing(monkeypatch):
+def no_tracing(monkeypatch):
     monkeypatch.setenv("LANGSMITH_TRACING", "false")
     monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
 
 
 @pytest.fixture
 def csv_path(tmp_path):
-    path = tmp_path / "study.csv"
-    path.write_text("group,score\nA,2\nB,4\nA,\n", encoding="utf-8")
-    return path
+    p = tmp_path / "study.csv"
+    p.write_text("group,score\nA,2\nB,4\nA,\n", encoding="utf8")
+    return p
 
 
-def test_offline_runs_real_tool_loop_without_network(csv_path, monkeypatch):
-    attempts = []
+def paired(report):
+    calls = [v for v in report["trace"] if v["kind"] == "tool_call"]
+    results = [v for v in report["trace"] if v["kind"] == "tool_result"]
+    assert len(calls) == len(results) == len(report["execution_ledger"])
+    for c in calls:
+        r = next(v for v in results if v["tool_call_id"] == c["id"])
+        e = next(v for v in report["execution_ledger"] if v["tool_call_id"] == c["id"])
+        assert c["name"] == r["name"] == e["name"]
+        assert c["args"] == e["arguments"]
+        assert json.loads(r["content"]) == e["result"]
 
-    def deny_network(*args, **kwargs):
-        attempts.append(True)
-        raise AssertionError("Offline Agent attempted a network connection.")
 
-    monkeypatch.setattr(socket, "create_connection", deny_network)
-    monkeypatch.setattr(socket.socket, "connect", deny_network)
+def test_offline_summary_real_tools_no_network(csv_path, monkeypatch):
+    connections = []
+
+    def deny(*a, **k):
+        connections.append(True)
+        raise AssertionError("offline connected")
+
+    monkeypatch.setattr(socket, "create_connection", deny)
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    before = hashlib.sha256(csv_path.read_bytes()).hexdigest()
     model = OfflineIntakeModel()
-    report = run_intake("比较各组得分，先给出概览。", csv_path, model)
-    assert report["status"] == "awaiting_confirmation"
-    assert report["stage"] == "intake"
-    assert report["profile_observed"] is True
-    assert report["profile_completed"] is True
-    assert report["profile"]["row_count"] == 3
-    assert report["source"] == report["profile"]["source"]
-    assert report["source"]["name"] == "study.csv"
-    assert str(csv_path.parent) not in json.dumps(report)
-    assert report["profile"]["column_count"] == 2
-    assert report["model_calls"] == 2
-    assert report["tool_attempts"] == 1
-    assert len(report["execution_ledger"]) == 1
-    assert model.bound_tool_sets == [["profile_csv"], ["profile_csv"]]
-    assert model.seen_tool_results == ["offline-profile-1"]
-    call, result = report["trace"]
-    assert call["name"] == result["name"] == "profile_csv"
-    assert call["id"] == result["tool_call_id"] == "offline-profile-1"
-    assert "3 行、2 列" in report["final_answer"]
-    assert "等待用户确认" in report["final_answer"]
-    assert attempts == []
-    json.dumps(report, ensure_ascii=False, allow_nan=False)
+    r = run_intake("概览字段与缺失情况", csv_path, model)
+    assert r["status"] == "completed"
+    assert r["profile"]["row_count"] == 3 and r["profile"]["column_count"] == 2
+    assert r["model_calls"] == 2 and r["tool_counts"]["profile_csv"] == 1
+    assert set(model.bound_tool_sets[0]) == {"profile_csv"}
+    assert set(model.bound_tool_sets[-1]) == {"analyze_csv", "ask_user"}
+    assert "3 行、2 列" in r["final_answer"]
+    assert r["retrieval_status"] == "unavailable" and not connections
+    assert hashlib.sha256(csv_path.read_bytes()).hexdigest() == before
+    paired(r)
+    json.dumps(r, allow_nan=False)
 
 
-def test_offline_summary_changes_with_actual_dataset(tmp_path):
-    first = tmp_path / "first.csv"
-    second = tmp_path / "second.csv"
-    first.write_text("name,cost\na,1\nb,2\n", encoding="utf-8")
-    second.write_text("temperature\n20\n", encoding="utf-8")
-    report_one = run_intake("理解成本数据", first, OfflineIntakeModel())
-    report_two = run_intake("理解实验测量", second, OfflineIntakeModel())
-    assert report_one["status"] == report_two["status"] == "awaiting_confirmation"
-    assert "2 行、2 列" in report_one["final_answer"]
-    assert "name, cost" in report_one["final_answer"]
-    assert "1 行、1 列" in report_two["final_answer"]
-    assert "temperature" in report_two["final_answer"]
-    assert report_one["profile"]["source"]["sha256"] != report_two["profile"]["source"]["sha256"]
+def test_medal_clarify_execute_followup_and_budget():
+    p = Path("examples/data/medals.csv")
+    digest = hashlib.sha256(p.read_bytes()).hexdigest()
+    s = create_session(p, OfflineIntakeModel())
+    graph = s.graph
+    r = s.invoke("统计出获得最多奖牌的前5个国家")
+    assert r["status"] == "awaiting_input" and r["question"]
+    assert r["tool_counts"] == {
+        "profile_csv": 1,
+        "search_materials": 0,
+        "analyze_csv": 0,
+        "ask_user": 1,
+    }
+    assert r["model_calls"] == 2
+    task_id = r["task_id"]
+    r = s.resume("全部年份、按 Total 累计、保留原始 NOC")
+    assert r["status"] == "completed" and r["task_id"] == task_id
+    assert r["tool_counts"]["ask_user"] == 1 and r["tool_counts"]["profile_csv"] == 1
+    assert r["analysis_results"][0]["rows"] == [
+        {"column_2": "Alpha", "total_medals": 22},
+        {"column_2": "Beta", "total_medals": 17},
+        {"column_2": "Gamma", "total_medals": 11},
+        {"column_2": "Delta", "total_medals": 7},
+        {"column_2": "Epsilon", "total_medals": 5},
+    ]
+    assert "Alpha | 22" in r["final_answer"]
+    assert r["replies"] == ["全部年份、按 Total 累计、保留原始 NOC"]
+    paired(r)
+    r = s.invoke("改为2024年")
+    assert s.graph is graph
+    assert r["status"] == "completed" and r["task_id"] != task_id
+    assert r["tool_counts"]["profile_csv"] == r["tool_counts"]["ask_user"] == 0
+    assert r["model_calls"] == 2 and r["tool_counts"]["analyze_csv"] == 1
+    assert r["analysis_results"][0]["rows"] == [
+        {"column_2": "Alpha", "total_medals": 12},
+        {"column_2": "Beta", "total_medals": 9},
+        {"column_2": "Gamma", "total_medals": 6},
+        {"column_2": "Delta", "total_medals": 4},
+        {"column_2": "Epsilon", "total_medals": 3},
+    ]
+    paired(r)
+    assert hashlib.sha256(p.read_bytes()).hexdigest() == digest
 
 
-def test_no_tool_call_cannot_be_counted_as_profile_success(csv_path):
-    report = run_intake("检查数据", csv_path,
-                        ScriptedModel(responses=[AIMessage(content="数据已检查，全部正常。")]))
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "missing_tool_call"
-    assert report["profile_observed"] is False
-    assert report["profile_completed"] is False
-    assert report["execution_ledger"] == []
+def test_no_fake_success_without_profile(csv_path):
+    r = run_intake("概览", csv_path, ScriptedModel(responses=[answer()]))
+    assert r["status"] == "error" and r["error"]["code"] == "missing_tool_call"
 
 
-@pytest.mark.parametrize("name,args", [
-    ("write_file", {"file_path": "/forbidden.txt", "content": "do not write"}),
-    ("task", {"description": "Delegate the analysis", "subagent_type": "general-purpose"}),
-    ("nonexistent_tool", {}),
-])
-def test_tools_outside_allowlist_cannot_execute(csv_path, name, args):
-    model = ScriptedModel(responses=[_call(name, args=args), AIMessage(content="完成。")])
-    report = run_intake("检查数据", csv_path, model)
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "tool_not_allowed"
-    assert report["profile_observed"] is False
-    assert report["execution_ledger"] == []
-    assert all(names == ["profile_csv"] for names in model.bound_tool_sets)
+@pytest.mark.parametrize(
+    "name,args",
+    [
+        ("write_file", {"file_path": "/bad", "content": "bad"}),
+        ("task", {"description": "delegate", "subagent_type": "general-purpose"}),
+        ("unknown", {}),
+    ],
+)
+def test_forbidden_dispatch(csv_path, name, args):
+    r = run_intake(
+        "概览", csv_path, ScriptedModel(responses=[call(name, args=args), answer()])
+    )
+    assert r["status"] == "error" and r["error"]["code"] == "tool_not_allowed"
+    assert r["execution_ledger"] == []
 
 
-def test_harness_rejects_actual_dispatch_of_nonprofile_tool():
-    harness = _IntakeHarness()
-    called = []
-    request = SimpleNamespace(tool_call={"name": "write_file", "args": {}, "id": "bad-1"})
-    response = harness.wrap_tool_call(request, lambda value: called.append(value))
-    assert called == []
-    assert response.status == "error"
-    assert response.tool_call_id == "bad-1"
-    assert harness.failure == "tool_not_allowed"
+def test_path_injection(csv_path):
+    r = run_intake(
+        "概览",
+        csv_path,
+        ScriptedModel(responses=[call(args={"path": "other.csv"}), answer()]),
+    )
+    assert r["status"] == "error" and r["error"]["code"] == "invalid_tool_arguments"
+    assert r["execution_ledger"] == []
 
 
-def test_profile_tool_cannot_be_redirected_to_another_path(csv_path):
-    model = ScriptedModel(responses=[_call(args={"path": "other.csv"}), AIMessage(content="完成。")])
-    report = run_intake("检查数据", csv_path, model)
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "invalid_tool_arguments"
-    assert report["execution_ledger"] == []
+def test_readonly_calculation_must_execute(csv_path):
+    r = run_intake(
+        "统计各组得分均值", csv_path, ScriptedModel(responses=[call(), answer()])
+    )
+    assert r["status"] == "error" and r["error"]["code"] == "missing_analysis_result"
+    assert r["analysis_results"] == []
 
 
-def test_repeated_profile_calls_do_not_bypass_execution_budget(csv_path):
-    model = ScriptedModel(responses=[
-        _call(call_id="first"), _call(call_id="second"), AIMessage(content="完成。"),
-    ])
-    report = run_intake("检查数据", csv_path, model)
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "tool_budget_exhausted"
-    assert len(report["execution_ledger"]) == 1
-    assert report["tool_attempts"] == 2
-    assert report["model_calls"] <= 3
-    assert report["profile_completed"] is False
+def test_model_declared_calculation_needs_execution(csv_path):
+    r = run_intake(
+        "查看 score", csv_path, ScriptedModel(responses=[call(), answer("calculation")])
+    )
+    assert r["error"]["code"] == "missing_analysis_result"
 
 
-def test_parallel_tool_calls_cannot_bypass_execution_budget(csv_path):
-    calls = _call(call_id="first").tool_calls + _call(call_id="second").tool_calls
-    model = ScriptedModel(responses=[AIMessage(content="", tool_calls=calls), AIMessage(content="完成。")])
-    report = run_intake("检查数据", csv_path, model)
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "tool_budget_exhausted"
-    assert len(report["execution_ledger"]) == 1
+def test_failed_analysis_never_completed_as_summary(csv_path):
+    r = run_intake(
+        "查看 score",
+        csv_path,
+        ScriptedModel(
+            responses=[call(), call("analyze_csv", "a1", {"spec": {}}), answer()]
+        ),
+    )
+    assert r["status"] == "error" and r["error"]["code"] == "missing_analysis_result"
+    assert r["execution_ledger"][-1]["result"]["status"] == "error"
 
 
-def test_model_budget_blocks_fourth_handler_call():
-    harness = _IntakeHarness()
-    handler_calls = []
+def test_analyze_before_profile_rejected(csv_path):
+    r = run_intake(
+        "概览",
+        csv_path,
+        ScriptedModel(responses=[call("analyze_csv", args={"spec": {}}), answer()]),
+    )
+    assert r["error"]["code"] == "tool_before_profile"
+    assert r["execution_ledger"] == []
+
+
+def test_duplicate_profile_and_parallel_budgets(csv_path):
+    for responses in (
+        [call(), call(cid="p2"), answer()],
+        [
+            AIMessage(
+                content="", tool_calls=call().tool_calls + call(cid="p2").tool_calls
+            ),
+            answer(),
+        ],
+    ):
+        r = run_intake("概览", csv_path, ScriptedModel(responses=responses))
+        assert r["error"]["code"] == "tool_budget_exhausted"
+        assert len(r["execution_ledger"]) == 1 and r["profile_completed"]
+
+
+def test_id_and_content_tampering_detected(csv_path):
+    r = run_intake("概览", csv_path, OfflineIntakeModel())
+    for mutation in ("id", "content", "args"):
+        trace = copy.deepcopy(r["trace"])
+        if mutation == "id":
+            trace[1]["tool_call_id"] = "fake"
+        elif mutation == "content":
+            trace[1]["content"] = "{}"
+        else:
+            trace[0]["args"] = {"path": "fake.csv"}
+        assert (
+            _validate_evidence(trace, r["execution_ledger"])[1]
+            == "unmatched_tool_evidence"
+        )
+    assert _validate_evidence(r["trace"], [])[1] == "missing_execution_evidence"
+
+
+def test_model_budget_12():
+    h = _IntakeHarness()
 
     class Request:
         tools = [SimpleNamespace(name="profile_csv")]
 
         def override(self, **values):
-            assert [tool.name for tool in values["tools"]] == ["profile_csv"]
             return self
 
-    def handler(request):
-        handler_calls.append(request)
+    count = []
+
+    def handler(r):
+        count.append(1)
         return SimpleNamespace(result=[])
 
-    for _ in range(3):
-        harness.wrap_model_call(Request(), handler)
+    for _ in range(12):
+        h.wrap_model_call(Request(), handler)
     with pytest.raises(_IntakeRejected, match="model_budget_exhausted"):
-        harness.wrap_model_call(Request(), handler)
-    assert len(handler_calls) == harness.model_calls == 3
+        h.wrap_model_call(Request(), handler)
+    assert len(count) == h.model_calls == 12
 
 
-def test_call_result_and_execution_ids_must_match(csv_path):
-    successful = run_intake("检查数据", csv_path, OfflineIntakeModel())
-    trace = copy.deepcopy(successful["trace"])
-    trace[1]["tool_call_id"] = "invented-result-id"
-    profile, error = _validate_evidence(trace, successful["execution_ledger"])
-    assert profile is None
-    assert error == "unmatched_tool_evidence"
+def test_replay_dispatch_deduplication():
+    h = _IntakeHarness()
+    h.profile_ready = True
+    h._advertised = {"analyze_csv", "ask_user"}
+    request = SimpleNamespace(
+        tool_call={"name": "analyze_csv", "args": {"spec": {}}, "id": "a1"}
+    )
+    runs = []
+
+    def handler(req):
+        runs.append(1)
+        out = {"status": "completed", "rows": []}
+        h.record_execution(out, "analyze_csv")
+        return __import__(
+            "langchain_core.messages", fromlist=["ToolMessage"]
+        ).ToolMessage(content=json.dumps(out), tool_call_id="a1", name="analyze_csv")
+
+    h.wrap_tool_call(request, handler)
+    h.wrap_tool_call(request, handler)
+    assert len(runs) == h.tool_counts["analyze_csv"] == len(h.execution_ledger) == 1
+    request.tool_call["args"] = {"spec": {"top_k": 2}}
+    assert h.wrap_tool_call(request, handler).status == "error"
+    assert h.failure == "reused_tool_call_id"
 
 
-def test_result_content_must_match_actual_execution(csv_path):
-    successful = run_intake("检查数据", csv_path, OfflineIntakeModel())
-    trace = copy.deepcopy(successful["trace"])
-    altered = json.loads(trace[1]["content"])
-    altered["row_count"] = 9999
-    trace[1]["content"] = json.dumps(altered)
-    assert _validate_evidence(trace, successful["execution_ledger"])[1] == "unmatched_tool_evidence"
+def test_budget_resume_not_reset(csv_path):
+    responses = (
+        [call()]
+        + [call("ask_user", f"q{i}", {"question": f"关键口径{i}?"}) for i in range(4)]
+        + [answer()]
+    )
+    s = create_session(csv_path, ScriptedModel(responses=responses))
+    r = s.invoke("查看数据")
+    for i in range(3):
+        assert r["status"] == "awaiting_input"
+        assert r["tool_counts"]["ask_user"] == i + 1
+        r = s.resume("回答")
+    assert (
+        r["status"] == "error"
+        and r["error"]["code"] == "clarification_budget_exhausted"
+    )
+    assert len([e for e in r["execution_ledger"] if e["name"] == "ask_user"]) == 3
 
 
-def test_fabricated_tool_message_without_actual_execution_is_not_evidence():
-    trace = [{"kind": "tool_call", "name": "profile_csv", "id": "fake"},
-             {"kind": "tool_result", "name": "profile_csv", "tool_call_id": "fake",
-              "content": '{"status":"completed"}', "status": "success"}]
-    assert _validate_evidence(trace, [])[1] == "missing_execution_evidence"
+def test_cancel_and_invalid_transitions():
+    s = create_session("examples/data/medals.csv", OfflineIntakeModel())
+    with pytest.raises(ValueError):
+        s.resume("x")
+    s.invoke("前5个国家")
+    with pytest.raises(ValueError):
+        s.invoke("另一个任务")
+    with pytest.raises(ValueError):
+        s.resume("  ")
+    assert s.cancel()["status"] == "cancelled"
+    with pytest.raises(ValueError):
+        s.resume("回答")
 
 
-def test_parse_or_file_error_is_not_success(tmp_path):
-    report = run_intake("检查数据", tmp_path / "missing.csv", OfflineIntakeModel())
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "profile_failed"
-    assert report["profile_observed"] is False
-    assert report["profile_completed"] is False
-    assert len(report["execution_ledger"]) == 1
-    assert report["source"] == {"name": "missing.csv", "sha256": None}
+def test_file_error_is_evidenced(tmp_path):
+    r = run_intake("概览", tmp_path / "missing.csv", OfflineIntakeModel())
+    assert r["status"] == "error" and r["error"]["code"] == "profile_failed"
+    assert len(r["execution_ledger"]) == 1 and not r["profile_completed"]
 
 
-def test_large_profile_is_a_bounded_error_and_no_samples_allows_retry(tmp_path):
-    path = tmp_path / "long-sample.csv"
-    long_cell = "测" * 20_000
-    path.write_text(f"note_a,note_b\n{long_cell},{long_cell}\n", encoding="utf-8")
-    standalone = profile_csv(path)
-    assert standalone["status"] == "completed"
-    assert len(standalone["sample_rows"][0][0]) == 20_000
-    oversized = run_intake("理解数据", path, OfflineIntakeModel())
-    assert oversized["status"] == "error"
-    assert oversized["error"]["code"] == "profile_output_too_large"
-    assert "--sample-rows 0" in oversized["error"]["message"]
-    assert oversized["source"] == standalone["source"]
-    assert len(json.dumps(oversized, ensure_ascii=False).encode("utf-8")) < 5000
-    retry = run_intake("理解数据", path, OfflineIntakeModel(), sample_rows=0)
-    assert retry["status"] == "awaiting_confirmation"
-    assert retry["profile"]["sample_rows"] == []
+def test_oversized_profile_bound_and_retry(tmp_path):
+    p = tmp_path / "long.csv"
+    p.write_text("a,b\n" + "测" * 20000 + "," + "测" * 20000 + "\n", encoding="utf8")
+    r = run_intake("概览", p, OfflineIntakeModel())
+    assert r["error"]["code"] == "profile_output_too_large"
+    assert len(json.dumps(r, ensure_ascii=False).encode()) < 6000
+    assert (
+        run_intake("概览", p, OfflineIntakeModel(), sample_rows=0)["status"]
+        == "completed"
+    )
 
 
-def test_model_failure_after_profile_preserves_source_and_execution(csv_path):
-    class FailsAfterToolModel(OfflineIntakeModel):
-        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-            if any(message.type == "tool" for message in messages):
-                raise RuntimeError("upstream model failed")
-            return super()._generate(messages, stop, run_manager, **kwargs)
+def test_upstream_errors_sanitized(csv_path):
+    class Bad(OfflineIntakeModel):
+        def _generate(self, *a, **k):
+            raise RuntimeError("api_key=private-secret")
 
-    report = run_intake("检查数据", csv_path, FailsAfterToolModel())
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "agent_failed"
-    assert report["profile_completed"] is False
-    assert len(report["execution_ledger"]) == 1
-    assert report["source"] == report["execution_ledger"][0]["result"]["source"]
-    assert len(report["source"]["sha256"]) == 64
-    assert [item["kind"] for item in report["trace"]] == ["tool_call", "tool_result"]
+    r = run_intake("概览", csv_path, Bad())
+    assert r["error"]["code"] == "agent_failed" and r["diagnostics"] == {
+        "exception_type": "RuntimeError"
+    }
+    assert "private-secret" not in json.dumps(r)
 
 
-def test_terminal_tool_message_cannot_be_a_final_summary(csv_path, monkeypatch):
-    import labweaver.agent as agent_module
+def test_profile_survives_later_model_error(csv_path):
+    class Bad(OfflineIntakeModel):
+        def _generate(self, messages, *a, **k):
+            if any(m.type == "tool" for m in messages):
+                raise RuntimeError("bad")
+            return super()._generate(messages, *a, **k)
 
-    original_builder = agent_module.create_deep_agent
-
-    def build_without_final_message(**kwargs):
-        graph = original_builder(**kwargs)
-
-        def invoke(*args, **invoke_kwargs):
-            result = graph.invoke(*args, **invoke_kwargs)
-            result["messages"] = result["messages"][:-1]
-            return result
-
-        return SimpleNamespace(invoke=invoke)
-
-    monkeypatch.setattr(agent_module, "create_deep_agent", build_without_final_message)
-    report = run_intake("检查数据", csv_path, OfflineIntakeModel())
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "missing_final_answer"
-    assert report["profile_completed"] is False
+    r = run_intake("概览", csv_path, Bad())
+    assert (
+        r["status"] == "error"
+        and r["profile_completed"]
+        and len(r["execution_ledger"]) == 1
+    )
 
 
-def test_agent_exception_details_do_not_leak_credentials(csv_path):
-    class FailingModel(OfflineIntakeModel):
-        def _generate(self, *args, **kwargs):
-            raise RuntimeError("api_key=secret-test-credential")
-
-    report = run_intake("检查数据", csv_path, FailingModel())
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "agent_failed"
-    assert report["diagnostics"] == {"exception_type": "RuntimeError"}
-    assert "secret-test-credential" not in json.dumps(report)
+def test_empty_task_no_model_calls(csv_path):
+    r = run_intake(" ", csv_path, OfflineIntakeModel())
+    assert (
+        r["error"]["code"] == "invalid_task"
+        and r["model_calls"] == r["tool_attempts"] == 0
+    )
 
 
-def test_http_error_diagnostics_keep_only_type_and_integer_status(csv_path):
-    class UpstreamError(RuntimeError):
-        status_code = 401
-
-    class FailingModel(OfflineIntakeModel):
-        def _generate(self, *args, **kwargs):
-            raise UpstreamError("body contains secret-test-token at https://private.example")
-
-    report = run_intake("检查数据", csv_path, FailingModel())
-    assert report["status"] == "error"
-    assert report["diagnostics"] == {"exception_type": "UpstreamError", "http_status": 401}
-    serialized = json.dumps(report)
-    assert "secret-test-token" not in serialized
-    assert "private.example" not in serialized
-
-
-def test_empty_task_is_rejected_without_model_or_tool_calls(csv_path):
-    model = OfflineIntakeModel()
-    report = run_intake(" ", csv_path, model)
-    assert report["error"]["code"] == "invalid_task"
-    assert report["model_calls"] == report["tool_attempts"] == 0
-    assert model.bound_tool_sets == []
+def test_malformed_final_json(csv_path):
+    r = run_intake(
+        "概览",
+        csv_path,
+        ScriptedModel(responses=[call(), AIMessage(content="finished")]),
+    )
+    assert r["error"]["code"] == "invalid_final_answer"

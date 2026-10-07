@@ -72,11 +72,11 @@ def test_direct_runner_resolves_project_config_from_another_cwd_offline(
     assert runner.main() == 0
     capsys.readouterr()
 
-    records = list(output_dir.glob("*.json"))
+    records = list(output_dir.rglob("*.json"))
     assert len(records) == 1
     report = json.loads(records[0].read_text(encoding="utf-8"))
     assert report["mode"] == "offline"
-    assert report["status"] == "awaiting_confirmation"
+    assert report["status"] == "completed"
     assert report["profile_completed"] is True
     assert report["profile"]["row_count"] == 8
     assert report["profile"]["column_count"] == 5
@@ -94,8 +94,8 @@ def test_direct_runner_resolves_project_config_from_another_cwd_offline(
     else:
         assert len(report["execution_ledger"]) == 1
         assert report.get("retrieval_queries", []) == []
-        assert "brief_path" not in report
-        assert not records[0].with_suffix(".md").exists()
+        assert report["brief_path"] == str(records[0].with_suffix(".md"))
+        assert records[0].with_suffix(".md").exists()
     assert report["source"] == {"name": "survey.csv", "sha256": source_hash}
     assert hashlib.sha256(csv_path.read_bytes()).hexdigest() == source_hash
     assert all(hashlib.sha256(path.read_bytes()).hexdigest() == digest

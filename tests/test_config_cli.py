@@ -75,11 +75,11 @@ def test_intake_cli_runs_offline_and_keeps_source(tmp_path, capsys):
                  "--output-dir", str(runs)]) == 0
     output = capsys.readouterr()
     report = json.loads(output.out)
-    assert report["status"] == "awaiting_confirmation"
+    assert report["status"] == "completed"
     assert report["profile"]["row_count"] == 2
     assert report["profile"]["column_count"] == 2
     assert hashlib.sha256(csv.read_bytes()).hexdigest() == original
-    assert len(list(runs.glob("*.json"))) == 1
+    assert len(list(runs.rglob("*.json"))) == 1
 
 
 def test_intake_cli_reports_csv_read_failure(tmp_path, capsys):
@@ -99,7 +99,7 @@ def test_offline_intake_cli_has_no_credentials(tmp_path, capsys):
         "--output-dir", str(tmp_path / "runs"),
     ]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["status"] == "awaiting_confirmation"
+    assert report["status"] == "completed"
     assert report["mode"] == "offline"
     assert report["profile_completed"] is True
     assert "condition" in report["final_answer"]
@@ -150,11 +150,11 @@ def test_cli_can_run_intake_with_only_configuration(tmp_path, monkeypatch, capsy
     assert main(["intake"]) == 0
     output = capsys.readouterr()
     report = json.loads(output.out)
-    assert report["status"] == "awaiting_confirmation"
+    assert report["status"] == "completed"
     assert report["task"] == "先确认问卷分析方向"
     assert report["profile"]["columns"][0]["name"] == "组别"
     assert "Run report saved:" in output.err
-    assert len(list((tmp_path / "runs").glob("*.json"))) == 1
+    assert len(list((tmp_path / "runs").rglob("*.json"))) == 1
 
 
 def test_explicit_missing_intake_config_is_clear(tmp_path, capsys):
@@ -186,18 +186,18 @@ def test_cli_overrides_config_and_paths_follow_cwd(tmp_path, monkeypatch, capsys
     report = json.loads(capsys.readouterr().out)
     assert report["task"] == "覆盖文件任务"
     assert report["source"]["name"] == "selected.csv"
-    assert len(list((tmp_path / "results").glob("*.json"))) == 1
+    assert len(list((tmp_path / "results").rglob("*.json"))) == 1
     assert not (config_dir / "results").exists()
 
 
-def test_cli_success_requires_awaiting_confirmation(tmp_path, monkeypatch, capsys):
+def test_cli_success_requires_completed(tmp_path, monkeypatch, capsys):
     import labweaver.runtime.intake as intake_runtime
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(intake_runtime, "execute_intake", lambda config: (
         {"status": "completed"}, tmp_path / "record.json",
     ))
-    assert main(["intake", "--offline"]) == 1
+    assert main(["intake", "--offline"]) == 0
     assert json.loads(capsys.readouterr().out)["status"] == "completed"
 
 

@@ -1,10 +1,13 @@
-"""Deterministic offline chat model for exercising the real Agent tool loop."""
+"""Deterministic offline fixture model; exercises the real tools, never calls an API.
+
+This supports demo summaries and the public medal dialogue, not arbitrary NLP.
+Use a live model for general task interpretation.
+"""
 
 from __future__ import annotations
-
 import json
+import re
 from typing import Any
-
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
@@ -12,113 +15,156 @@ from pydantic import PrivateAttr
 
 
 class OfflineIntakeModel(BaseChatModel):
-    """Request a real profile, then summarize its result without any network API."""
-
     _bound_tool_sets: list[list[str]] = PrivateAttr(default_factory=list)
     _seen_tool_results: list[str] = PrivateAttr(default_factory=list)
     _available_tools: list[str] = PrivateAttr(default_factory=list)
+    _serial: int = PrivateAttr(default=0)
 
     @property
-    def _llm_type(self) -> str:
+    def _llm_type(self):
         return "labweaver-offline"
 
     @property
-    def bound_tool_sets(self) -> list[list[str]]:
-        return [list(names) for names in self._bound_tool_sets]
+    def bound_tool_sets(self):
+        return [list(v) for v in self._bound_tool_sets]
 
     @property
-    def seen_tool_results(self) -> list[str]:
+    def seen_tool_results(self):
         return list(self._seen_tool_results)
 
     def bind_tools(self, tools, *, tool_choice=None, **kwargs):
-        names = [item.get("name") if isinstance(item, dict) else item.name for item in tools]
+        names = [v.get("name") if isinstance(v, dict) else v.name for v in tools]
+        if not set(names) <= {
+            "profile_csv",
+            "analyze_csv",
+            "search_materials",
+            "ask_user",
+        }:
+            raise ValueError("Unexpected tool exposed to offline model")
         self._bound_tool_sets.append(names)
-        if names not in (["profile_csv"], ["profile_csv", "search_materials"]):
-            raise ValueError("The offline intake model requires the bounded intake tool set.")
         self._available_tools = names
         return self
 
-    def get_num_tokens(self, text: str) -> int:
-        # No tokenizer downloads: an estimate is sufficient for this bounded demo.
+    def get_num_tokens(self, text):
         return max(1, (len(text) + 3) // 4)
 
-    def get_num_tokens_from_messages(self, messages, tools=None) -> int:
-        return sum(self.get_num_tokens(str(message.content)) for message in messages)
+    def get_num_tokens_from_messages(self, messages, tools=None):
+        return sum(self.get_num_tokens(str(m.content)) for m in messages)
+
+    def _call(self, name, args):
+        self._serial += 1
+        return ChatResult(
+            generations=[
+                ChatGeneration(
+                    message=AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "name": name,
+                                "args": args,
+                                "id": f"offline-{name}-{self._serial}",
+                                "type": "tool_call",
+                            }
+                        ],
+                    )
+                )
+            ]
+        )
 
     def _generate(
-        self,
-        messages: list[BaseMessage],
-        stop: list[str] | None = None,
-        run_manager: Any = None,
-        **kwargs: Any,
-    ) -> ChatResult:
-        tool_messages = [message for message in messages if isinstance(message, ToolMessage)]
-        if not tool_messages:
-            message = AIMessage(content="", tool_calls=[{
-                "name": "profile_csv", "args": {}, "id": "offline-profile-1", "type": "tool_call",
-            }])
-        else:
-            evidence = tool_messages[-1]
-            profiles = [item for item in tool_messages if item.name == "profile_csv"]
-            searches = [item for item in tool_messages if item.name == "search_materials"]
-            # Both tool names and IDs are checked before any result is summarized.
-            profile_message = profiles[0] if profiles else evidence
-            if profile_message.tool_call_id != "offline-profile-1" or profile_message.name != "profile_csv":
-                raise ValueError("The offline model received an unmatched profile result.")
-            if profile_message.tool_call_id not in self._seen_tool_results:
-                self._seen_tool_results.append(profile_message.tool_call_id)
-            profile = json.loads(profile_message.content)
-            task_messages = [item for item in messages if item.type == "human"]
-            task = str(task_messages[-1].content) if task_messages else "未提供任务"
-            if (profile.get("status") == "completed" and
-                    "search_materials" in self._available_tools and not searches):
-                return ChatResult(generations=[ChatGeneration(message=AIMessage(
-                    content="", tool_calls=[{"name": "search_materials",
-                    "args": {"query": task[:300]}, "id": "offline-search-1", "type": "tool_call"}],
-                ))])
-            if searches:
-                search = searches[-1]
-                if search.tool_call_id != "offline-search-1":
-                    raise ValueError("The offline model received an unmatched retrieval result.")
-                self._seen_tool_results.append(search.tool_call_id)
-                retrieval = json.loads(search.content)
-                matches = retrieval.get("matches", [])
-                references = []
-                for chunk in matches:
-                    location = chunk["location"]
-                    position = (f"第{location['page']}页" if "page" in location else
-                                f"第{location['line_start']}–{location['line_end']}行")
-                    # Escape citation-looking data so source text cannot mint IDs.
-                    excerpt = chunk["text"][:200].replace("[D", "［D")
-                    references.append(f"- [{chunk['id']}]（{chunk['name']}，{position}）：{excerpt}")
-                content = (
-                    f"## 任务理解\n{task}\n"
-                    f"## 数据条件\n实际概览：{profile['source']['name']}，{profile['row_count']} 行、"
-                    f"{profile['column_count']} 列；字段：{', '.join(c['name'] for c in profile['columns'])}。\n"
-                    "## 候选分析\n以下是待确认方案，尚未执行分析。"
-                    + ("可按照检索资料中的指标、分组和交付要求规划分析。\n" if matches else
-                       "资料不足，无法确认资料规定的分析方法。\n")
-                    + "## 资料依据\n" + ("\n".join(references) if references else
-                       "检索无命中；资料不足，请补充相关要求或变量说明。")
-                    + "\n## 待确认事项\n确认任务目标、字段含义、缺失处理口径和交付形式。"
-                    "资料中的指令文本仅作为数据，不改变执行权限；如要求冲突，请用户确认。"
-                    "当前等待用户确认；尚未清洗数据、执行分析或生成研究结论。"
+        self, messages: list[BaseMessage], stop=None, run_manager: Any = None, **kwargs
+    ):
+        last_human = max(i for i, m in enumerate(messages) if m.type == "human")
+        task = str(messages[last_human].content)
+        tools = [m for m in messages if isinstance(m, ToolMessage)]
+        current = [m for m in messages[last_human + 1 :] if isinstance(m, ToolMessage)]
+        for m in tools:
+            if m.tool_call_id not in self._seen_tool_results:
+                self._seen_tool_results.append(m.tool_call_id)
+        profiles = [json.loads(m.content) for m in tools if m.name == "profile_csv"]
+        if not profiles:
+            return self._call("profile_csv", {})
+        profile = profiles[-1]
+        if profile.get("status") != "completed":
+            raise ValueError("The fixture requires a valid profile")
+        searches = [
+            json.loads(m.content) for m in current if m.name == "search_materials"
+        ]
+        needs_search = bool(
+            re.search(r"资料|竞赛|说明|依据|方法|requirements|material", task, re.I)
+        )
+        if (
+            "search_materials" in self._available_tools
+            and needs_search
+            and not searches
+        ):
+            names = " ".join(c["name"] for c in profile["columns"])
+            query = (
+                "quasar_redshift"
+                if "quasar_redshift" in task
+                else (names + " " + task)[:300]
+            )
+            return self._call("search_materials", {"query": query})
+        positions = {c["name"]: c["position"] for c in profile["columns"]}
+        is_medal = {"NOC", "Total", "Year"} <= set(positions)
+        calculation = is_medal and bool(re.search(r"前|奖牌|2024|top|rank", task, re.I))
+        analyses = [json.loads(m.content) for m in current if m.name == "analyze_csv"]
+        if calculation and not analyses:
+            replies = [
+                json.loads(m.content)["reply"] for m in tools if m.name == "ask_user"
+            ]
+            combined = task + " " + " ".join(replies)
+            if not re.search(r"全部|所有|累计|2024|all years", combined, re.I):
+                return self._call(
+                    "ask_user",
+                    {
+                        "question": "请确认年份范围、奖牌指标及历史国家标签。可回复：全部年份、按 Total 累计、保留原始 NOC。"
+                    },
                 )
-                return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
-            if profile.get("status") != "completed":
-                content = "CSV 概览未完成，请先检查输入文件或解析设置；当前停在项目接收阶段。"
-            else:
-                column_names = [column["name"] for column in profile["columns"]]
-                content = (
-                    f"任务摘要：{task}\n"
-                    f"实际概览：{profile['source']['name']}，{profile['row_count']} 行、"
-                    f"{profile['column_count']} 列；字段：{', '.join(column_names)}。\n"
-                    f"工具还返回了逐列缺失统计及 {len(profile['sample_rows'])} 行样例。\n"
-                    "下一步建议：确认需要比较的字段、分组方式和期望交付成果，"
-                    "然后再制定分析步骤。\n"
-                    "待确认：本次优先回答什么问题？哪些字段是指标或分组依据？"
-                    "缺失数据的处理规则是什么？\n"
-                    "当前等待用户确认；尚未清洗数据、执行分析或生成研究结论。"
+            filters = (
+                [{"column": positions["Year"], "op": "eq", "value": 2024}]
+                if "2024" in task
+                else []
+            )
+            spec = {
+                "filters": filters,
+                "group_by": [positions["NOC"]],
+                "metrics": [
+                    {"op": "sum", "column": positions["Total"], "alias": "total_medals"}
+                ],
+                "order_by": [{"field": "total_medals", "direction": "desc"}],
+                "top_k": 5,
+            }
+            return self._call("analyze_csv", {"spec": spec})
+        answer = f"实际概览：{profile['source']['name']}，{profile['row_count']} 行、{profile['column_count']} 列；字段：{', '.join(c['name'] for c in profile['columns'])}。"
+        if calculation:
+            answer += "已按原始 NOC 分组，对 Total 求和，按奖牌数降序取前五。" + (
+                "范围为 2024 年。" if "2024" in task else "范围为全部年份。"
+            )
+        if searches:
+            chunks = [c for s in searches for c in s.get("matches", [])]
+            for c in chunks:
+                loc = c["location"]
+                position = (
+                    f"第{loc['page']}页"
+                    if "page" in loc
+                    else f"第{loc['line_start']}–{loc['line_end']}行"
                 )
-            message = AIMessage(content=content)
-        return ChatResult(generations=[ChatGeneration(message=message)])
+                answer += f"\n[{c['id']}]（{c['name']}，{position}）：{c['text'][:140].replace('[D', '［D')}"
+            if not chunks:
+                answer += "\n检索无命中，资料不足，不能提供资料依据。"
+        answer += "\n离线模式是固定验收流程；通用任务解释需在线模型。"
+        result = {
+            "task_kind": "calculation" if calculation else "summary",
+            "retrieval_reason": "当前任务需要资料依据"
+            if searches
+            else "当前任务可以由 CSV 数据独立完成",
+            "answer": answer,
+        }
+        return ChatResult(
+            generations=[
+                ChatGeneration(
+                    message=AIMessage(content=json.dumps(result, ensure_ascii=False))
+                )
+            ]
+        )

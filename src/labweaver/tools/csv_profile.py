@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import csv
+import codecs
+from dataclasses import dataclass
 import hashlib
 import io
 import math
@@ -10,7 +12,9 @@ import os
 from pathlib import Path
 import re
 import threading
-from typing import Any
+from typing import Any, NoReturn
+
+from charset_normalizer import from_bytes
 
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -24,6 +28,161 @@ _CSV_LOCK = threading.RLock()
 _NUMBER = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\Z")
 _LEADING_ZERO = re.compile(r"[+-]?0[0-9]+\Z")
 _LONG_INTEGER = re.compile(r"[+-]?[0-9]{16,}\Z")
+_DELIMITERS = (",", ";", "\t", "|")
+_DETECTION_RECORDS = 50
+
+
+@dataclass(frozen=True)
+class CsvSnapshot:
+    """One strictly parsed read of the source, shared by profile and statistics.
+
+    Cell strings and row/column order are unchanged. Metadata dictionaries are
+    owned by this snapshot; callers should copy them before adding report data.
+    """
+
+    source: dict[str, Any]
+    headers: tuple[str, ...]
+    rows: tuple[tuple[str, ...], ...]
+    profile: dict[str, Any]
+
+
+class CsvReadError(ValueError):
+    """A bounded CSV read failed, or needs an explicit format choice."""
+
+    def __init__(
+        self, code: str, message: str, *, source: dict | None = None,
+        candidates: list[dict] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.source = source
+        self.candidates = candidates
+
+    def as_result(self) -> dict[str, Any]:
+        result = _error(self.code, self.message, source=self.source)
+        if self.candidates:
+            result["error"]["candidates"] = self.candidates
+        return result
+
+
+def _decode_csv(raw: bytes, encoding: str) -> tuple[str, str, str]:
+    """Decode strictly; heuristic ambiguity is exposed instead of repaired."""
+    if encoding != "auto":
+        try:
+            return raw.decode(encoding, errors="strict"), codecs.lookup(encoding).name, "explicit"
+        except LookupError as exc:
+            raise CsvReadError("invalid_encoding", "The requested text encoding is not available.") from exc
+        except UnicodeDecodeError as exc:
+            raise CsvReadError("decode_error", "The CSV could not be decoded with the selected encoding.") from exc
+    # UTF-32 BOMs begin with a UTF-16 BOM, so test the longer signatures first.
+    for signatures, codec in (
+        ((codecs.BOM_UTF32_LE, codecs.BOM_UTF32_BE), "utf-32"),
+        ((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE), "utf-16"),
+        ((codecs.BOM_UTF8,), "utf-8-sig"),
+    ):
+        if any(raw.startswith(signature) for signature in signatures):
+            try:
+                return raw.decode(codec, errors="strict"), codec, "bom"
+            except UnicodeDecodeError as exc:
+                raise CsvReadError("decode_error", "The CSV has a BOM but its encoded contents are invalid.") from exc
+    try:
+        return raw.decode("utf-8", errors="strict"), "utf-8", "strict_utf8"
+    except UnicodeDecodeError:
+        pass
+
+    # Charset-normalizer scores describe text coherence/chaos, not a probability
+    # of correctness. Compare distinct full decodings and retain an ambiguity
+    # whenever the leading plausible decodings are too close to distinguish.
+    decoded: list[tuple[str, str, float, float]] = []
+    seen_text: set[str] = set()
+    for match in from_bytes(raw):
+        try:
+            text = raw.decode(match.encoding, errors="strict")
+        except (LookupError, UnicodeDecodeError):
+            continue
+        if "\x00" in text or text in seen_text:
+            continue
+        seen_text.add(text)
+        decoded.append((match.encoding, text, match.chaos, match.coherence))
+    if not decoded:
+        raise CsvReadError("decode_error", "No supported encoding can reliably decode the CSV. Set encoding explicitly.")
+    first = decoded[0]
+    runner_up = decoded[1] if len(decoded) > 1 else None
+    clear_margin = runner_up is None or runner_up[2] - first[2] >= 0.05 - 1e-9
+    clear_coherence = runner_up is not None and first[3] >= 0.20 and first[3] - runner_up[3] >= 0.10
+    if first[2] <= 0.10 and (clear_margin or clear_coherence):
+        return first[1], first[0], "charset_normalizer"
+    candidates = [
+        {"encoding": codec, "preview": text[:300], "chaos": chaos, "coherence": coherence}
+        for codec, text, chaos, coherence in decoded[:5]
+    ]
+    raise CsvReadError(
+        "ambiguous_encoding", "The CSV encoding is ambiguous. Choose an encoding after checking these previews.",
+        candidates=candidates,
+    )
+
+
+def _choose_delimiter(text: str, delimiter: str) -> tuple[str, str]:
+    """Choose a separator from quoted records, before the full strict parse.
+
+    A separator present in the header remains a candidate even when a later
+    sample record is malformed. This prevents treating a broken multicolumn CSV
+    as a valid single column after a parse failure.
+    """
+    if delimiter != "auto":
+        return delimiter, "explicit"
+    candidates: list[dict] = []
+    with _CSV_LOCK:
+        previous_field_limit = csv.field_size_limit()
+        csv.field_size_limit(MAX_FIELD_CHARS)
+        try:
+            for separator in _DELIMITERS:
+                reader = csv.reader(io.StringIO(text, newline=""), delimiter=separator, strict=True)
+                header = None
+                preview = []
+                matches = 0
+                records = 0
+                malformed = False
+                try:
+                    for row in reader:
+                        if not row:
+                            continue
+                        if header is None:
+                            header = row
+                            if len(row) <= 1:
+                                break
+                            preview.append(row)
+                            continue
+                        records += 1
+                        if len(preview) < 3:
+                            preview.append(row)
+                        matches += len(row) == len(header)
+                        if records >= _DETECTION_RECORDS:
+                            break
+                except csv.Error:
+                    malformed = True
+                if header is not None and len(header) > 1:
+                    candidates.append({"delimiter": separator, "preview": preview,
+                                       "matches": matches, "records": records, "malformed": malformed})
+        finally:
+            csv.field_size_limit(previous_field_limit)
+    if not candidates:
+        return ",", "single_column"
+    if len(candidates) == 1:
+        return candidates[0]["delimiter"], "quoted_record_sample"
+    # Width consistency distinguishes a separator from punctuation in a field.
+    # Equal consistency is genuinely ambiguous and is not decided by popularity.
+    def score(candidate: dict) -> tuple[float, int]:
+        records = candidate["records"] + int(candidate["malformed"])
+        return (candidate["matches"] / records if records else 1.0, candidate["matches"])
+    candidates.sort(key=score, reverse=True)
+    if score(candidates[0]) > score(candidates[1]):
+        return candidates[0]["delimiter"], "quoted_record_sample"
+    raise CsvReadError(
+        "ambiguous_delimiter", "More than one CSV separator fits the quoted records. Choose a delimiter explicitly.",
+        candidates=[{"delimiter": item["delimiter"], "preview": item["preview"]} for item in candidates],
+    )
 
 
 def _error(code: str, message: str, *, source: dict | None = None) -> dict[str, Any]:
@@ -64,40 +223,39 @@ def _parse_numeric(value: str) -> float | None:
     return number
 
 
-def profile_csv(
+def load_csv_snapshot(
     path: str | os.PathLike[str],
     *,
-    encoding: str = "utf-8-sig",
-    delimiter: str = ",",
+    encoding: str = "auto",
+    delimiter: str = "auto",
     sample_rows: int = 5,
-) -> dict[str, Any]:
-    """Profile an explicitly selected local CSV; never modify its contents.
+) -> CsvSnapshot:
+    """Read, identify the format, and strictly parse one selected local CSV.
 
     The first nonblank CSV record is the header. Empty/duplicate header names are
     preserved and columns are addressed by their one-based position. A missing
     value is a whitespace-only cell, not a literal NA, NULL, or 0. Numeric ranges
     and means describe all nonmissing cells only when the column is numeric.
     Leading-zero and long integer tokens are treated as identifier-like text.
-    Explicit encodings/delimiters are supported; this function never guesses
-    them or silently repairs ragged rows. Samples preserve parsed cell strings.
+    Automatic encoding/separator inference can ask for an explicit choice when
+    ambiguous. Once selected, full parsing never changes format or repairs rows.
     Each decoded field is limited to 64 KiB when encoded as UTF-8, with the
     stdlib character limit providing an additional early rejection. Limits apply
     to the full file: errors never return partial statistics.
     """
     if not isinstance(encoding, str) or not encoding:
-        return _error("invalid_argument", "encoding must be a nonempty codec name.")
+        raise CsvReadError("invalid_argument", "encoding must be a nonempty codec name or auto.")
     if (
         not isinstance(delimiter, str)
-        or len(delimiter) != 1
-        or delimiter in {"\r", "\n", "\x00", '"'}
+        or (delimiter != "auto" and (len(delimiter) != 1 or delimiter in {"\r", "\n", "\x00", '"'}))
     ):
-        return _error("invalid_argument", "delimiter must be one non-quote separator character.")
+        raise CsvReadError("invalid_argument", "delimiter must be auto or one non-quote separator character.")
     if isinstance(sample_rows, bool) or not isinstance(sample_rows, int) or sample_rows < 0:
-        return _error("invalid_argument", "sample_rows must be a nonnegative integer.")
+        raise CsvReadError("invalid_argument", "sample_rows must be a nonnegative integer.")
     try:
         source_path = Path(path)
     except (TypeError, ValueError):
-        return _error("invalid_argument", "path must identify a local file.")
+        raise CsvReadError("invalid_argument", "path must identify a local file.")
 
     warnings: list[str] = []
     sample_limit = min(sample_rows, MAX_SAMPLE_ROWS)
@@ -107,28 +265,29 @@ def profile_csv(
         with source_path.open("rb") as handle:
             raw = handle.read(MAX_FILE_BYTES + 1)
     except FileNotFoundError:
-        return _error("file_not_found", "The selected CSV file does not exist.")
+        raise CsvReadError("file_not_found", "The selected CSV file does not exist.")
     except (OSError, ValueError):
-        return _error("read_error", "The selected CSV file could not be read.")
+        raise CsvReadError("read_error", "The selected CSV file could not be read.")
     if len(raw) > MAX_FILE_BYTES:
-        return _error("file_too_large", f"The CSV exceeds the {MAX_FILE_BYTES}-byte limit.")
+        raise CsvReadError("file_too_large", f"The CSV exceeds the {MAX_FILE_BYTES}-byte limit.")
     source = {"name": source_path.name, "sha256": hashlib.sha256(raw).hexdigest()}
 
-    def file_error(code: str, message: str) -> dict[str, Any]:
-        return _error(code, message, source=source)
+    def file_error(code: str, message: str) -> NoReturn:
+        raise CsvReadError(code, message, source=source)
 
     try:
-        text = raw.decode(encoding, errors="strict")
-    except LookupError:
-        return file_error("invalid_encoding", "The requested text encoding is not available.")
-    except UnicodeDecodeError:
-        return file_error("decode_error", "The CSV could not be decoded with the selected encoding.")
+        text, actual_encoding, encoding_method = _decode_csv(raw, encoding)
+        actual_delimiter, delimiter_method = _choose_delimiter(text, delimiter)
+    except CsvReadError as exc:
+        exc.source = source
+        raise
     if "\x00" in text:
         return file_error("invalid_csv", "The decoded CSV contains a NUL character.")
 
     header: list[str] | None = None
     accumulators: list[dict[str, Any]] = []
     samples: list[list[str]] = []
+    parsed_rows: list[tuple[str, ...]] = []
     row_count = 0
     blank_records = 0
 
@@ -136,7 +295,7 @@ def profile_csv(
     with _CSV_LOCK:
         previous_field_limit = csv.field_size_limit()
         csv.field_size_limit(MAX_FIELD_CHARS)
-        reader = csv.reader(io.StringIO(text, newline=""), delimiter=delimiter, strict=True)
+        reader = csv.reader(io.StringIO(text, newline=""), delimiter=actual_delimiter, strict=True)
         try:
             for row in reader:
                 if not row:
@@ -167,6 +326,7 @@ def profile_csv(
                 if row_count >= MAX_DATA_ROWS:
                     return file_error("too_many_rows", f"The CSV exceeds the {MAX_DATA_ROWS}-data-record limit.")
                 row_count += 1
+                parsed_rows.append(tuple(row))
                 if len(samples) < sample_limit:
                     samples.append(row.copy())
                 for value, accumulator in zip(row, accumulators):
@@ -243,12 +403,29 @@ def profile_csv(
             "numeric_summary": summary,
         })
 
-    return {
+    profile = {
         "status": "completed",
         "source": source,
+        "parsing": {"encoding": actual_encoding, "delimiter": actual_delimiter,
+                    "encoding_method": encoding_method, "delimiter_method": delimiter_method},
         "row_count": row_count,
         "column_count": len(header),
         "columns": columns,
         "sample_rows": samples,
         "warnings": warnings,
     }
+    return CsvSnapshot(source=source, headers=tuple(header), rows=tuple(parsed_rows), profile=profile)
+
+
+def profile_csv(
+    path: str | os.PathLike[str], *, encoding: str = "auto", delimiter: str = "auto", sample_rows: int = 5,
+) -> dict[str, Any]:
+    """Return a JSON-safe full profile or a precise error, without source writes.
+
+    This standalone function creates a snapshot internally. An Agent session
+    should retain ``load_csv_snapshot``'s result and reuse it for every tool.
+    """
+    try:
+        return load_csv_snapshot(path, encoding=encoding, delimiter=delimiter, sample_rows=sample_rows).profile
+    except CsvReadError as exc:
+        return exc.as_result()

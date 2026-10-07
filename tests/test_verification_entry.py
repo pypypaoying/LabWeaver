@@ -1,6 +1,7 @@
 """Check the one-click verification entry's safety and process-state cleanup."""
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import socket
@@ -56,3 +57,32 @@ def test_main_suppresses_arbitrary_failure_text_and_restores_state(tmp_path, mon
     assert "Passed: 0/12" in captured.out
     assert Path.cwd() == before_cwd
     assert dict(os.environ) == before_environment
+
+
+def test_main_verifies_actual_statistics_resume_and_artifacts_without_credentials(tmp_path, monkeypatch, capsys):
+    runner = _load_runner()
+    import labweaver.config as configuration
+    import labweaver.runtime.records as records
+
+    def deny_credentials(*args, **kwargs):
+        raise AssertionError("Offline acceptance must not load model credentials or create a live model.")
+
+    monkeypatch.setattr(configuration, "load_config", deny_credentials)
+    monkeypatch.setattr(configuration, "create_model", deny_credentials)
+    actual_save = records.save_run
+
+    def temporary_artifacts(report, output_dir, **kwargs):
+        return actual_save(report, tmp_path / "artifacts", **kwargs)
+
+    monkeypatch.setattr(records, "save_run", temporary_artifacts)
+    monkeypatch.chdir(tmp_path)
+    previous = (Path.cwd(), dict(os.environ), socket.create_connection, socket.socket.connect)
+    assert runner.main() == 0
+    output = capsys.readouterr()
+    assert "Passed: 12/12" in output.out and output.err == ""
+    assert previous == (Path.cwd(), dict(os.environ), socket.create_connection, socket.socket.connect)
+    saved = [json.loads(path.read_text(encoding="utf-8")) for path in (tmp_path / "artifacts").rglob("*.json")]
+    assert sum(report["status"] == "awaiting_input" for report in saved) == 1
+    tables = [report["analysis_results"][0] for report in saved if report.get("analysis_results")]
+    assert sorted(table["rows"][0]["total_medals"] for table in tables) == [12, 22]
+    assert len(list((tmp_path / "artifacts").rglob("*result-1.csv"))) == 2

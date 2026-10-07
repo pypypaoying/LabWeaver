@@ -40,6 +40,6 @@ jobs:
         run: uv run --frozen labweaver intake --offline
       - name: Verify experimental-data intake overrides
         run: uv run --frozen labweaver intake --config examples/configs/experiments.toml
-      - name: Verify D3 retrieval and brief artifacts
+      - name: Verify optional retrieval, resumed statistics and result artifacts
         run: uv run --frozen python verify_d3.py
 

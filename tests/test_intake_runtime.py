@@ -81,16 +81,16 @@ def test_none_env_file_ignores_unrelated_cwd_dotenv_and_accepts_process_settings
     _process_model_settings(monkeypatch)
     report, saved = intake_runtime.execute_intake(config)
     assert len(received_settings) == 1
-    assert report["status"] == "awaiting_confirmation"
+    assert report["status"] == "completed"
     assert report["mode"] == "live"  # Live configuration path; only model creation is replaced.
     assert report["model_calls"] == 2
     assert len(report["execution_ledger"]) == 1
     assert report["profile"]["row_count"] == 2
-    assert saved.parent == config.output_dir
-    assert "brief_path" not in report
-    assert not saved.with_suffix(".md").exists()
+    assert config.output_dir in saved.parents
+    assert report["brief_path"] == str(saved.with_suffix(".md"))
+    assert saved.with_suffix(".md").exists()
     recorded = saved.read_text(encoding="utf-8")
-    assert json.loads(recorded)["status"] == "awaiting_confirmation"
+    assert json.loads(recorded)["status"] == "completed"
     assert "unrelated-file-test-secret" not in recorded
     assert "process-test-placeholder" not in recorded
 
@@ -153,7 +153,7 @@ def test_materials_intake_saves_matching_json_and_source_linked_brief(tmp_path, 
     report, saved = intake_runtime.execute_intake(config)
     recorded = json.loads(saved.read_text(encoding="utf-8"))
     brief = saved.with_suffix(".md")
-    assert report["status"] == "awaiting_confirmation"
+    assert report["status"] == "completed"
     assert report["materials_completed"] is True
     assert report["profile"]["row_count"] == 2
     assert report["model_calls"] == 3
@@ -168,7 +168,8 @@ def test_materials_intake_saves_matching_json_and_source_linked_brief(tmp_path, 
 
 def test_failed_materials_intake_saves_error_record_without_brief(tmp_path):
     config = replace(_intake_config(tmp_path), mode="offline",
-                     material_paths=(tmp_path / "missing.txt",))
+                     material_paths=(tmp_path / "missing.txt",),
+                     task="根据资料说明 value 指标的定义。")
     report, saved = intake_runtime.execute_intake(config)
     assert report["status"] == "error"
     assert report.get("materials_completed") is False

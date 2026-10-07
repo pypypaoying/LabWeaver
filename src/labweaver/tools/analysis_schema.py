@@ -1,0 +1,65 @@
+"""Typed tool arguments make the available statistics explicit to the model."""
+
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictFloat, StrictStr
+
+
+class FilterSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    column: StrictInt = Field(ge=1, description="One-based CSV column position")
+    op: Literal[
+        "eq",
+        "ne",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "not_in",
+        "is_missing",
+        "not_missing",
+    ]
+    value: (
+        StrictStr
+        | StrictInt
+        | StrictFloat
+        | list[StrictStr | StrictInt | StrictFloat]
+        | None
+    ) = None
+
+
+class MetricSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["count", "sum", "mean", "min", "max"] = Field(
+        description="sum totals values; count counts records, not the values"
+    )
+    column: StrictInt | None = Field(
+        description="One-based value column; null only for row count"
+    )
+    alias: str = Field(min_length=1, max_length=80)
+
+
+class OrderSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    field: str = Field(
+        description="Metric alias or positional group key such as column_2"
+    )
+    direction: Literal["asc", "desc"]
+
+
+class AnalysisSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    filters: list[FilterSpec] = Field(max_length=20)
+    group_by: list[StrictInt] = Field(description="One-based group column positions")
+    metrics: list[MetricSpec] = Field(min_length=1, max_length=20)
+    order_by: list[OrderSpec]
+    top_k: StrictInt = Field(
+        ge=1,
+        le=1_000_000,
+        description="Return exactly this many rows when available; output capped at 100",
+    )
+
+
+class AnalysisArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    spec: AnalysisSpec

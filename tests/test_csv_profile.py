@@ -114,7 +114,7 @@ class CsvProfileTests(unittest.TestCase):
 
     def test_decode_unknown_codec_and_nul_errors(self):
         self.path.write_bytes(b"a\n\xff\n")
-        self.assert_profile_error(profile_csv(self.path), "decode_error")
+        self.assert_profile_error(profile_csv(self.path, encoding="utf-8"), "decode_error")
         self.assert_profile_error(profile_csv(self.path, encoding="not-a-codec"), "invalid_encoding")
         self.assert_profile_error(self.profile_text("a\n\x00\n"), "invalid_csv")
 
@@ -213,7 +213,7 @@ class CsvProfileTests(unittest.TestCase):
                           (b"", "empty_input")):
             with self.subTest(code=code):
                 self.path.write_bytes(raw)
-                result = profile_csv(self.path)
+                result = profile_csv(self.path, encoding="utf-8")
                 self.assert_profile_error(result, code)
                 self.assertEqual(result["source"], {
                     "name": "input.csv", "sha256": hashlib.sha256(raw).hexdigest(),

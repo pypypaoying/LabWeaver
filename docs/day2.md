@@ -1,3 +1,5 @@
+> 历史阶段记录：本次连续统计更新已替代旧终态与功能范围；当前使用方式见 [连续统计实现](session-statistics.md)。
+
 # 第二天开发记录：LabWeaver 接入基线
 
 日期：2026-10-02。英文名 LabWeaver；当前仓库为 [pypypaoying/LabWeaver](https://github.com/pypypaoying/LabWeaver)。下方验收数据保留第二天的实际结果。

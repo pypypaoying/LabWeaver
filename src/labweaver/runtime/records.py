@@ -1,8 +1,11 @@
-"""Write JSON-safe run artifacts without replacing existing reports."""
+"""Write strict JSON, a source-linked brief, and deterministic result CSVs."""
 
 from datetime import datetime, timezone
+import csv
+import io
 import json
 from pathlib import Path
+import re
 from uuid import uuid4
 
 
@@ -15,10 +18,41 @@ def _location_label(location: dict) -> str:
     raise ValueError("A cited chunk needs a valid page or line location.")
 
 
+def _result_tables(report: dict) -> list[dict]:
+    """Validate program result tables before serializing artifacts."""
+    if report.get("status") != "completed":
+        return []
+    tables = []
+    for result in report.get("analysis_results", []):
+        if result.get("status") != "completed":
+            continue
+        columns, rows = result.get("columns"), result.get("rows")
+        if not isinstance(columns, list) or not columns or any(
+            not isinstance(column, str) for column in columns
+        ) or len(set(columns)) != len(columns):
+            raise ValueError("An analysis table requires distinct string column names.")
+        if not isinstance(rows, list) or any(
+            not isinstance(row, dict) or set(row) != set(columns) for row in rows
+        ):
+            raise ValueError("Analysis rows must match their declared table columns.")
+        source = report.get("source")
+        if source and result.get("source") != source:
+            raise ValueError("An analysis table must match the bound CSV source.")
+        json.dumps(result, ensure_ascii=False, allow_nan=False)
+        tables.append(result)
+    return tables
+
+
+def _markdown_cell(value) -> str:
+    if value is None:
+        return ""
+    return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", "<br>")
+
+
 def _markdown_brief(report: dict) -> str:
-    if report.get("status") != "awaiting_confirmation" or report.get("materials_completed") is not True:
-        raise ValueError("A task brief requires a successful materials intake.")
-    chunks = {chunk["id"]: chunk for chunk in report.get("retrieved_chunks", [])}
+    if report.get("status") != "completed":
+        raise ValueError("A task brief requires a completed task.")
+    chunks = {chunk["id"]: chunk for chunk in report.get("citation_chunks", report.get("retrieved_chunks", []))}
     citations = report.get("citations", [])
     if any(citation not in chunks for citation in citations):
         raise ValueError("A task brief cannot cite a chunk absent from retrieval evidence.")
@@ -27,97 +61,125 @@ def _markdown_brief(report: dict) -> str:
     for citation in citations:
         chunk = chunks[citation]
         material = source_lookup.get(chunk["source_id"])
-        if material is None or any(material[key] != chunk[key] for key in ("name", "sha256")):
+        if material is None or any(material.get(key) != chunk.get(key) for key in ("name", "sha256")):
             raise ValueError("A cited chunk must match the registered material source.")
-    source = report.get("source", {})
+    source = report.get("source") or {}
     lines = [
-        "# LabWeaver 任务简报", "",
+        "# LabWeaver 任务结果", "",
         f"运行状态：{report['status']}", "",
         f"任务：{report.get('task', '')}", "",
-        f"数据文件：`{source.get('name', '')}`", "",
-        f"数据 SHA-256：`{source.get('sha256', '')}`", "",
-        "## 任务方案", "", str(report.get("final_answer", "")).strip(), "",
-        "## 资料与来源", "",
+        f"数据文件：\x60{source.get('name', '')}\x60", "",
+        f"数据 SHA-256：\x60{source.get('sha256', '')}\x60", "",
+        "## Agent 回答", "", str(report.get("final_answer", "")).strip(), "",
     ]
+    for number, result in enumerate(_result_tables(report), 1):
+        columns = result["columns"]
+        lines.extend([
+            f"## 实际统计结果 {number}", "",
+            "| " + " | ".join(_markdown_cell(column) for column in columns) + " |",
+            "| " + " | ".join("---" for _ in columns) + " |",
+        ])
+        for row in result["rows"]:
+            lines.append("| " + " | ".join(_markdown_cell(row[column]) for column in columns) + " |")
+        lines.extend(["", "统计请求：", "", "\x60\x60\x60json", json.dumps(result.get("spec", {}), ensure_ascii=False, indent=2, allow_nan=False), "\x60\x60\x60", ""])
+        if result.get("truncated"):
+            lines.extend(["结果已按工具规定截断；完整分组数量见 JSON。", ""])
+    lines.extend(["## 资料与来源", ""])
     for material in sources:
-        lines.append(
-            f"- {material['id']}：`{material['name']}`（{material['format']}）；"
-            f"SHA-256：`{material['sha256']}`"
-        )
-    lines.extend(["", "## 引用片段", ""])
+        lines.append(f"- {material['id']}：\x60{material['name']}\x60（{material.get('format', '')}）；SHA-256：\x60{material['sha256']}\x60")
+    lines.extend(["", f"检索状态：{report.get('retrieval_status', 'not_used')}", "", "## 引用片段", ""])
     if not citations:
-        lines.append("本次没有可引用的检索片段；资料依据不足的事项需要补充确认。")
+        lines.append("本次没有可引用的检索片段；CSV 统计以实际工具结果为准。")
     for citation in dict.fromkeys(citations):
         chunk = chunks[citation]
         lines.extend([
             f"### [{citation}] {chunk['name']}", "",
             f"来源位置：{_location_label(chunk['location'])}", "",
-            f"SHA-256：`{chunk['sha256']}`", "",
+            f"SHA-256：\x60{chunk['sha256']}\x60", "",
         ])
         lines.extend("> " + line for line in chunk["text"].splitlines())
         lines.append("")
     lines.extend([
         "## 当前边界", "",
-        "等待用户确认分析目标；尚未执行清洗、建模或绘图。",
-        "引用记录只证明片段实际检索到且出处可追溯，不自动证明回答的全部论断。", "",
+        "仅执行只读概览、筛选、聚合和排名；源文件保持不变。",
+        "引用记录证明片段实际检索到且出处可追溯，不自动证明回答的全部论断。",
+        "当前进程的内存检查点支持继续对话；JSON 记录不提供退出后恢复。", "",
     ])
     return "\n".join(lines)
 
 
-def save_markdown_brief(report: dict, target_path: str | Path) -> Path:
-    """Write a source-linked brief exclusively, cleaning up a failed new write."""
-    payload = _markdown_brief(report)
-    target = Path(target_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
+def _write_exclusive(target: Path, payload: str) -> None:
     created = False
     try:
         with target.open("x", encoding="utf-8", newline="\n") as stream:
             created = True
-            stream.write(payload + "\n")
+            stream.write(payload)
     except BaseException:
         if created:
             target.unlink(missing_ok=True)
         raise
+
+
+def save_markdown_brief(report: dict, target_path: str | Path) -> Path:
+    """Write a completed task brief without replacing an existing artifact."""
+    payload = _markdown_brief(report)
+    target = Path(target_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _write_exclusive(target, payload + "\n")
     return target
 
 
-def save_run(
-    report: dict, output_dir: str | Path = "runs", *, with_brief: bool = False
-) -> Path:
-    """Save JSON and optionally its sibling brief without overwriting artifacts.
-
-    The JSON only advertises a brief after the brief write succeeds. A failed
-    write removes files newly created by this call, never preexisting files.
-    Run IDs and timestamps belong to this write and are not taken from input.
-    """
-    document = {
-        **report,
-        "run_id": uuid4().hex,
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
-    }
+def _artifact_folder(report: dict, output_dir: str | Path) -> Path:
     folder = Path(output_dir)
+    for key in ("session_id", "task_id"):
+        value = report.get(key)
+        if value is not None:
+            if not isinstance(value, str) or re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value) is None:
+                raise ValueError(f"A report {key} must be a safe artifact identifier.")
+            folder /= value
+    return folder
+
+
+def save_run(report: dict, output_dir: str | Path = "runs", *, with_brief: bool = False) -> Path:
+    """Persist one task event and validated results using exclusive writes.
+
+    Events are grouped by session and task. A failed write removes only files
+    created by this call; existing artifacts survive collisions and failures.
+    """
+    document = {**report, "run_id": uuid4().hex, "recorded_at": datetime.now(timezone.utc).isoformat()}
+    folder = _artifact_folder(document, output_dir)
     target = folder / f"{document['run_id']}.json"
     brief_target = target.with_suffix(".md")
     document.pop("brief_path", None)
+    document.pop("result_csv_paths", None)
+    result_payloads = []
+    for number, result in enumerate(_result_tables(document), 1):
+        csv_target = target.with_name(f"{target.stem}-result-{number}.csv")
+        stream = io.StringIO(newline="")
+        writer = csv.DictWriter(stream, fieldnames=result["columns"], lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(result["rows"])
+        result_payloads.append((csv_target, stream.getvalue()))
+    if result_payloads:
+        document["result_csv_paths"] = [str(path.resolve()) for path, _ in result_payloads]
+    brief_payload = None
     if with_brief:
         document["brief_path"] = str(brief_target.resolve())
-        _markdown_brief(document)  # Validate source references before creating files.
-    payload = json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False)
+        brief_payload = _markdown_brief(document) + "\n"
+    payload = json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
     folder.mkdir(parents=True, exist_ok=True)
-    brief_created = False
-    json_created = False
+    created = []
     try:
-        if with_brief:
-            save_markdown_brief(document, brief_target)
-            brief_created = True
-        with target.open("x", encoding="utf-8", newline="\n") as stream:
-            json_created = True
-            stream.write(payload + "\n")
+        for csv_target, csv_payload in result_payloads:
+            _write_exclusive(csv_target, csv_payload)
+            created.append(csv_target)
+        if brief_payload is not None:
+            _write_exclusive(brief_target, brief_payload)
+            created.append(brief_target)
+        _write_exclusive(target, payload)
+        created.append(target)
     except BaseException:
-        if json_created:
-            target.unlink(missing_ok=True)
-        if brief_created:
-            brief_target.unlink(missing_ok=True)
+        for path in reversed(created):
+            path.unlink(missing_ok=True)
         raise
     return target
-

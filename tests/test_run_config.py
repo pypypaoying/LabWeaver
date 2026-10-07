@@ -21,8 +21,8 @@ def test_zero_argument_load_uses_builtins_when_default_file_is_missing(tmp_path,
     assert config.task is None
     assert config.task_file == tmp_path / "examples/tasks/survey.txt"
     assert config.mode == "live"
-    assert config.encoding == "utf-8-sig"
-    assert config.delimiter == ","
+    assert config.encoding == "auto"
+    assert config.delimiter == "auto"
     assert config.sample_rows == 5
     assert config.output_dir == tmp_path / "runs"
     assert config.env_file is None
@@ -258,7 +258,7 @@ def test_repeated_cli_materials_override_configuration_as_cwd_paths(tmp_path, mo
 
     def observe(config):
         observed.append(config)
-        return {"status": "awaiting_confirmation"}, tmp_path / "run.json"
+        return {"status": "completed"}, tmp_path / "run.json"
 
     monkeypatch.setattr(intake_runtime, "execute_intake", observe)
     assert main(["intake", "--offline", "--material", "first.md", "--material", "second.pdf"]) == 0

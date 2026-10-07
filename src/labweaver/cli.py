@@ -17,7 +17,7 @@ def _delimiter(value: str) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="LabWeaver data-project intake agent")
+    parser = argparse.ArgumentParser(description="LabWeaver read-only CSV task agent")
     parser.add_argument("--version", action="version", version="LabWeaver 0.1.0")
     commands = parser.add_subparsers(dest="command", required=True)
     command = commands.add_parser("intake")
@@ -61,5 +61,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Run report saved: {saved}", file=sys.stderr)
     if report.get("brief_path"):
         print(f"Task brief saved: {report['brief_path']}", file=sys.stderr)
-    return 0 if report.get("status") == "awaiting_confirmation" else 1
+    if report.get("result_csv_paths"):
+        for path in report["result_csv_paths"]:
+            print(f"Result CSV saved: {path}", file=sys.stderr)
+    if report.get("status") == "awaiting_input":
+        print("A reply is required. Use run_labweaver.py in VS Code for a continuous conversation.", file=sys.stderr)
+        return 3
+    return 0 if report.get("status") == "completed" else 1
 

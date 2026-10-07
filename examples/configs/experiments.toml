@@ -7,7 +7,7 @@ materials = [
   "../materials/experiments/methods.md",
 ]
 mode = "offline"
-encoding = "utf-8-sig"
-delimiter = ","
+encoding = "auto"
+delimiter = "auto"
 sample_rows = 5
 output_dir = "../../runs"

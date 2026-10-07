@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "LabWeaver: run intake",
+      "name": "LabWeaver: conversation",
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
@@ -21,7 +21,7 @@
       }
     },
     {
-      "name": "LabWeaver: real CSV + PDF checks",
+      "name": "LabWeaver: real data (compatibility entry)",
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",

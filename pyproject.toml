@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "labweaver"
 version = "0.1.0"
-description = "An evidence-based intake agent for student and research data projects"
+description = "A conversational CSV statistics agent with optional traceable retrieval"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
@@ -15,6 +15,7 @@ dependencies = [
     "pypdf>=6,<7",
     "rank-bm25>=0.2.2,<0.3",
     "jieba>=0.42.1,<0.43",
+    "charset-normalizer>=3.4,<4",
 ]
 
 [project.scripts]

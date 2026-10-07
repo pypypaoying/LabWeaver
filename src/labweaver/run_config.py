@@ -28,8 +28,8 @@ _DEFAULTS = {
     "csv": "examples/data/survey.csv",
     "task_file": "examples/tasks/survey.txt",
     "mode": "live",
-    "encoding": "utf-8-sig",
-    "delimiter": ",",
+    "encoding": "auto",
+    "delimiter": "auto",
     "sample_rows": 5,
     "output_dir": "runs",
     "materials": [],
@@ -42,9 +42,11 @@ _PATH_KEYS = frozenset({"csv", "task_file", "env_file", "output_dir"})
 def _normalize_delimiter(value: Any) -> str:
     if not isinstance(value, str):
         raise ConfigurationError("Setting 'delimiter' must be a string.")
+    if value == "auto":
+        return value
     normalized = "\t" if value in {"tab", "\\t"} else value
     if len(normalized) != 1 or normalized in {"\n", "\r", "\x00", '"'}:
-        raise ConfigurationError("Setting 'delimiter' must be one separator character, or 'tab'.")
+        raise ConfigurationError("Setting 'delimiter' must be 'auto', one separator character, or 'tab'.")
     return normalized
 
 
