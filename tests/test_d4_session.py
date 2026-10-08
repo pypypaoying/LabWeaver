@@ -17,7 +17,7 @@ from langchain_core.messages import ToolMessage
 
 def test_missing_required_chart_tool_gets_one_real_budgeted_correction(tmp_path):
     from langchain_core.messages import AIMessage
-    from tests.test_agent_rag import RagScriptedModel, _call, _answer
+    from test_agent_rag import RagScriptedModel, _call, _answer
     source = tmp_path / "data.csv"
     source.write_text("group,score\nA,2\nB,4\n", encoding="utf-8")
     spec = {"filters": [], "group_by": [1], "metrics": [{"op": "sum", "column": 2, "alias": "total"}],
