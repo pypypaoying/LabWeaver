@@ -21,7 +21,7 @@ from .csv_analysis import _AnalysisError, _numeric
 
 _RENDER_LOCK = threading.RLock()
 _MONTH = re.compile(r"[0-9]{4}-[0-9]{2}\Z")
-_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
+_DATE = re.compile(r"(?P<year>[0-9]{4})(?P<sep>[-/])(?P<month>[0-9]{1,2})(?P=sep)(?P<day>[0-9]{1,2})\Z")
 
 
 class PlotSpec(BaseModel):
@@ -35,7 +35,9 @@ class PlotSpec(BaseModel):
     x_label: str = Field(default="", max_length=80)
     y_label: str = Field(default="", max_length=80)
     orientation: Literal["vertical", "horizontal"] = "vertical"
-    x_type: Literal["auto", "numeric", "date"] = "auto"
+    x_type: Literal["auto", "numeric", "date"] = Field(
+        default="auto", description="Line axis: numeric, or unambiguous year-first dates YYYY-MM, YYYY-M-D, YYYY/M/D. auto detects these dates; original labels are preserved."
+    )
 
     @field_validator("x", "y", "title", "x_label", "y_label")
     @classmethod
@@ -85,10 +87,16 @@ def _label(value: Any) -> str:
 
 
 def _date(value: Any) -> date:
-    if not isinstance(value, str) or not (_MONTH.fullmatch(value) or _DATE.fullmatch(value)):
-        raise PlotError("invalid_x_axis", "Date axes require ISO YYYY-MM or YYYY-MM-DD values.")
+    if not isinstance(value, str):
+        raise PlotError("invalid_x_axis", "Date axes require year-first YYYY-MM, YYYY-M-D or YYYY/M/D values; ambiguous day/month ordering is not inferred.")
+    value = value.strip()
+    month, day = _MONTH.fullmatch(value), _DATE.fullmatch(value)
+    if not month and not day:
+        raise PlotError("invalid_x_axis", "Date axes require year-first YYYY-MM, YYYY-M-D or YYYY/M/D values; ambiguous day/month ordering is not inferred.")
     try:
-        return date.fromisoformat(value + "-01" if _MONTH.fullmatch(value) else value)
+        if month:
+            return date.fromisoformat(value + "-01")
+        return date(int(day["year"]), int(day["month"]), int(day["day"]))
     except ValueError as exc:
         raise PlotError("invalid_x_axis", "The date axis contains an invalid calendar date.") from exc
 
@@ -146,7 +154,7 @@ def _table(data: dict, spec: PlotSpec) -> tuple[str, str, list[dict], list, list
     missing = 0
     x_type = spec.x_type
     if spec.chart_type == "line" and x_type == "auto":
-        if all(isinstance(row.get(x), str) and (_MONTH.fullmatch(row[x]) or _DATE.fullmatch(row[x])) for row in rows):
+        if any(isinstance(row.get(x), str) and (_MONTH.fullmatch(row[x].strip()) or _DATE.fullmatch(row[x].strip())) for row in rows):
             x_type = "date"
         else:
             x_type = "numeric"
@@ -296,7 +304,7 @@ def render_chart(data: dict[str, Any], spec: dict[str, Any], *, font_path: str |
                     axes.set_xlabel(x_label, fontproperties=font)
                     axes.set_ylabel(y_label, fontproperties=font)
                     if x_type == "date":
-                        monthly = all(_MONTH.fullmatch(str(row[x])) for row in plotted_rows)
+                        monthly = all(_MONTH.fullmatch(str(row[x]).strip()) for row in plotted_rows)
                         pattern = "%Y-%m" if monthly else "%Y-%m-%d"
                         axes.xaxis.set_major_formatter(mdates.DateFormatter(pattern))
                         if len(xs) == 1:

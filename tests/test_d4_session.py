@@ -66,6 +66,8 @@ def paired(report):
      [{"column_1": "B", "value": 2}, {"column_1": "A", "value": 0.5}]),
     ("month,revenue\n2024-03,2\n2024-01,3\n2024-02,4\n2024-02,1\n", "按 month 汇总 revenue 并绘制折线图", "line",
      [{"column_1": "2024-01", "value": 3}, {"column_1": "2024-02", "value": 5}, {"column_1": "2024-03", "value": 2}]),
+    ("date,quantity\n2024/12/10,2\n2024/12/1,3\n2024/12/2,4\n2024/12/2,1\n", "按 date 汇总 quantity 并绘制折线图", "line",
+     [{"column_1": "2024/12/1", "value": 3}, {"column_1": "2024/12/2", "value": 5}, {"column_1": "2024/12/10", "value": 2}]),
     ("group,score\nA,0\nB,1\nA,1\nB,2\nB,3\nA,\n", "绘制 score 的直方图，使用3箱", "histogram",
      [{"bin_left": 0, "bin_right": 1, "count": 1}, {"bin_left": 1, "bin_right": 2, "count": 2}, {"bin_left": 2, "bin_right": 3, "count": 2}]),
 ])
@@ -207,6 +209,7 @@ def test_second_chart_registration_failure_discards_entire_delegation(tmp_path):
     report = session.invoke("按 category 汇总 value 并绘制柱状图")
     assert len(calls) == 2
     assert report["status"] == "error" and report["visualization_status"] == "error"
+    assert report["tool_counts"]["delegate_visualization"] == 1
     assert report["charts"] == [] and session.chart_assets == {}
     assert session._pending_chart_assets == {}
     saved = session.save(tmp_path / "runs")

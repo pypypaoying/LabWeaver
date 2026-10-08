@@ -83,6 +83,34 @@ def test_numeric_line_sorts_raw_numeric_labels():
     assert [row["column_1"] for row in metadata["rows"]] == ["1", "2", "10"]
 
 
+@pytest.mark.parametrize("x_type", ["auto", "date"])
+@pytest.mark.parametrize("separator", ["/", "-"])
+def test_year_first_line_dates_sort_by_calendar_preserving_raw_data(x_type, separator):
+    labels = [value.replace("/", separator) for value in ("2024/12/10", "2024/12/2", "2025/1/1", "2024/12/1")]
+    data = aggregate([[labels[0], "4"], [labels[1], "8"], [labels[2], "2"], [labels[3], "6"]])
+    before = copy.deepcopy(data)
+    result = render_chart(data, {"chart_type": "line", "x_type": x_type})
+    metadata = assert_asset(result)
+    assert metadata["x_type"] == "date"
+    assert metadata["rows"] == [{"column_1": labels[index], "total": value}
+                                for index, value in [(3, 6), (1, 8), (0, 4), (2, 2)]]
+    assert [row["column_1"] for row in csv.DictReader(io.StringIO(result["data_csv"]))] == [labels[i] for i in (3, 1, 0, 2)]
+    assert data == before
+
+
+@pytest.mark.parametrize("labels,code", [
+    (["2024/2/29", "2024/2/30"], "invalid_x_axis"),
+    (["2023/2/29", "2023/3/1"], "invalid_x_axis"),
+    (["2024/12/1", "2024-12-01"], "duplicate_x_axis"),
+    (["2024/12/1", "12/02/2024"], "invalid_x_axis"),
+    (["2024/12/1", "2024/12-2"], "invalid_x_axis"),
+])
+def test_year_first_dates_reject_invalid_ambiguous_or_duplicate_days(labels, code):
+    output = render_chart(aggregate([[label, "2"] for label in labels]), {"chart_type": "line"})
+    assert output["status"] == "error" and output["error"]["code"] == code
+    assert "png" not in output
+
+
 def test_histogram_uses_registered_hand_counted_intervals():
     data = distribution(range(7), bins=3)
     metadata = assert_asset(render_chart(data, {"chart_type": "histogram"}))

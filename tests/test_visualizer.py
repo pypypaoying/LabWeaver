@@ -282,6 +282,22 @@ def test_four_attempt_render_budget_cannot_be_evaded(data):
     assert not registered
 
 
+def test_budget_failure_keeps_the_first_concrete_renderer_error(data):
+    model = ChildModel(responses=[
+        call("get_plot_data", {"data_id": "data_1"}, "read"),
+        *[call("render_chart", {"data_id": "data_1", "spec": {"chart_type": "line", "x_type": "date"}}, f"render-{i}")
+          for i in range(5)],
+    ])
+    runner, _, registered = build(data, model)
+    report = runner.delegate("data_1", "Draw a date line", "parent-1")
+    assert report["error"]["code"] == "visualization_render_budget_exhausted"
+    cause = report["error"]["first_render_error"]
+    assert cause["code"] == "invalid_x_axis" and cause["tool_call_id"] == "render-0"
+    assert "YYYY/M/D" in cause["message"] and cause["message"] in report["error"]["message"]
+    assert runner.model_calls == 6 and runner.render_attempts == 4
+    assert not registered
+
+
 def test_clear_renderer_error_survives_to_parent(data, monkeypatch):
     from labweaver import visualizer
 

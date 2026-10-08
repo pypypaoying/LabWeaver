@@ -986,7 +986,8 @@ class AgentSession:
                 "tools": [name, "ask_user"],
                 "instruction": "用户要求图表。先用 " + name + " 从完整快照取得真实计算数据和 data_id，再委派绘图。影响结果的口径不明确才 ask_user；不能用样例或绘图方案代替真实执行。",
             }
-        if _requires_visualization(self.task) and current_data and not self.chart_assets:
+        if (_requires_visualization(self.task) and current_data and not self.chart_assets
+                and not self.visualizer.runs):
             available = [{"data_id": data["data_id"], "kind": data["kind"], "spec": data["spec"]}
                          for data in current_data]
             return {
