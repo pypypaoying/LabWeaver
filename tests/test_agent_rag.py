@@ -436,32 +436,33 @@ def test_dynamic_tool_schemas_reach_the_actual_openai_http_payload(csv_path, mat
     _assert_paired_execution(report)
 
 
-def test_format_selection_does_not_answer_a_separate_year_scope_question(tmp_path, monkeypatch):
+def test_format_selection_does_not_answer_a_separate_business_scope_question(tmp_path, monkeypatch):
     import labweaver.agent as module
     from labweaver.tools.csv_profile import CsvReadError
     path = tmp_path / "years.csv"
-    path.write_text("Year,NOC,Total\n2020,Alpha,2\n2024,Alpha,4\n", encoding="utf-8")
+    path.write_text("Year,Department,Revenue\n2020,Sales,2\n2024,Sales,4\n", encoding="utf-8")
     source = {"name": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
     original = module.load_csv_snapshot
     def choose_encoding(csv_path, **options):
         if options["encoding"] == "auto":
             raise CsvReadError("ambiguous_encoding", "Choose a codec.", source=source,
-                               candidates=[{"encoding": "utf-8", "preview": "Year,NOC,Total"}])
+                               candidates=[{"encoding": "utf-8", "preview": "Year,Department,Revenue"}])
         return original(csv_path, **options)
     monkeypatch.setattr(module, "load_csv_snapshot", choose_encoding)
-    request = {"filters": [], "group_by": [2], "metrics": [{"op": "sum", "column": 3, "alias": "medals"}],
+    request = {"filters": [], "group_by": [2], "metrics": [{"op": "sum", "column": 3, "alias": "revenue"}],
                "order_by": [], "top_k": 5}
     model = RagScriptedModel(responses=[_call(), _call("ask_user", "ask-year", {"question": "统计全部年份还是指定年份？"}),
                                        _call("analyze_csv", "analysis-year", {"spec": request}), _answer()])
     session = create_session(path, model)
-    format_pending = session.invoke("统计获得最多奖牌的前5个国家")
+    format_pending = session.invoke("统计收入最多的前5个部门")
     assert format_pending["status"] == "awaiting_input"
     year_pending = session.resume("1")
     assert year_pending["status"] == "awaiting_input", year_pending
-    assert year_pending["tool_exposure"][-1] == ["ask_user"]
-    completed = session.resume("全部年份、按 Total 累计、保留原始 NOC")
+    assert year_pending["question"] == "统计全部年份还是指定年份？"
+    assert set(year_pending["tool_exposure"][-1]) == {"analyze_csv", "ask_user"}
+    completed = session.resume("全部年份、按 Revenue 累计、保留原始 Department")
     assert completed["status"] == "completed", completed
-    assert completed["analysis_results"][0]["rows"] == [{"column_2": "Alpha", "medals": 6}]
+    assert completed["analysis_results"][0]["rows"] == [{"column_2": "Sales", "revenue": 6}]
     assert completed["tool_counts"]["profile_csv"] == completed["tool_counts"]["ask_user"] == 1
     assert source["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -500,17 +501,36 @@ def test_explicit_basis_can_search_and_execute_an_independent_fully_specified_an
 
 
 @pytest.mark.parametrize("analysis_first", [False, True])
-def test_parallel_search_does_not_bypass_an_unconfirmed_ranking_year_scope(material_path, analysis_first):
-    root = Path(__file__).resolve().parents[1]
-    path = root / "examples/data/medals.csv"
-    request = {"filters": [], "group_by": [2], "metrics": [{"op": "sum", "column": 6, "alias": "medals"}],
-               "order_by": [{"field": "medals", "direction": "desc"}], "top_k": 5}
-    search_call = _search("score", "parallel-search").tool_calls[0]
+def test_salary_ranking_with_incidental_year_column_needs_no_forced_clarification(tmp_path, material_path, analysis_first):
+    path = tmp_path / "employees.csv"
+    path.write_text("Year,Employee,Salary\n2020,Alice,6000\n2024,Bob,9000\n2021,Carol,8000\n2024,Dave,5000\n", encoding="utf-8")
+    material_path.write_text("Salary 为员工当前月薪；Year 为入职年份。\n", encoding="utf-8")
+    request = {"filters": [], "group_by": [2], "metrics": [{"op": "max", "column": 3, "alias": "monthly_salary"}],
+               "order_by": [{"field": "monthly_salary", "direction": "desc"}], "top_k": 2}
+    search_call = _search("Salary", "parallel-search").tool_calls[0]
     analysis_call = _call("analyze_csv", "parallel-analysis", {"spec": request}).tool_calls[0]
     calls = [analysis_call, search_call] if analysis_first else [search_call, analysis_call]
-    model = RagScriptedModel(responses=[_call(), AIMessage(content="", tool_calls=calls), _cited_answer()])
-    report = run_intake("基于竞赛说明，统计获得最多奖牌的前5个国家。", path, model, material_paths=[material_path])
-    assert report["status"] == "error"
-    assert report["error"]["code"] == "critical_scope_unconfirmed"
-    assert report["analysis_results"] == []
-    assert all(item["name"] != "analyze_csv" for item in report["execution_ledger"])
+    answer = _answer("Salary 为当前月薪，Year 为入职年份 [D1-C1]（requirements.md，第1行）。已按员工当前月薪降序取前2名。",
+                     "当前工资指标的含义需要资料依据。")
+    final = json.loads(answer.content)
+    final["task_kind"] = "calculation"
+    answer.content = json.dumps(final, ensure_ascii=False)
+    model = RagScriptedModel(responses=[_call(), AIMessage(content="", tool_calls=calls), answer])
+    before = _hashes([path, material_path])
+    report = run_intake("基于资料说明，按员工当前月薪 Salary 排名，列出工资最高的前2名 Employee；Year 是入职年份。",
+                        path, model, material_paths=[material_path])
+    assert report["status"] == "completed", report
+    assert report["tool_exposure"][0] == ["profile_csv"]
+    assert report["tool_exposure"][1] == ["search_materials"]
+    assert report["tool_counts"]["profile_csv"] == report["tool_counts"]["search_materials"] == report["tool_counts"]["analyze_csv"] == 1
+    assert report["tool_counts"]["ask_user"] == 0
+    assert report["analysis_results"][0]["rows"] == [
+        {"column_2": "Bob", "monthly_salary": 9000},
+        {"column_2": "Carol", "monthly_salary": 8000},
+    ]
+    assert report["analysis_results"][0]["filtered_row_count"] == 4
+    assert report["retrieval_queries"] == ["Salary"]
+    assert report["citations"] == ["D1-C1"]
+    assert {item["name"] for item in model.received_results} == {"profile_csv", "search_materials", "analyze_csv"}
+    assert _hashes([path, material_path]) == before
+    _assert_paired_execution(report)

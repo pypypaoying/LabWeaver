@@ -18,7 +18,9 @@ class FilterSpec(BaseModel):
         "not_in",
         "is_missing",
         "not_missing",
-    ]
+    ] = Field(
+        description="eq/ne compare values, gt/gte/lt/lte compare numeric bounds, in/not_in test membership, is_missing/not_missing test whitespace-only cells"
+    )
     value: (
         StrictStr
         | StrictInt
@@ -31,7 +33,7 @@ class FilterSpec(BaseModel):
 class MetricSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
     op: Literal["count", "sum", "mean", "min", "max"] = Field(
-        description="sum totals values; count counts records, not the values"
+        description="sum totals values; count counts records, not values. Numeric aggregates skip whitespace-only missing cells and reject other invalid or nonfinite values"
     )
     column: StrictInt | None = Field(
         description="One-based value column; null only for row count"
@@ -50,7 +52,9 @@ class OrderSpec(BaseModel):
 class AnalysisSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
     filters: list[FilterSpec] = Field(max_length=20)
-    group_by: list[StrictInt] = Field(description="One-based group column positions")
+    group_by: list[StrictInt] = Field(
+        description="One-based group positions; preserve raw nonmissing labels, no implicit category merging"
+    )
     metrics: list[MetricSpec] = Field(min_length=1, max_length=20)
     order_by: list[OrderSpec]
     top_k: StrictInt = Field(
