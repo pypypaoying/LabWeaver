@@ -7,8 +7,8 @@ from pathlib import Path
 import sys
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-CONFIG_PATH = PROJECT_ROOT / "labweaver.toml"
+# None loads labweaver.toml from the project working directory at invocation.
+CONFIG_PATH = None
 # Advanced, optional overrides. Normal use supplies paths/task in the terminal.
 OVERRIDES = {}
 # None inherits TOML only for noninteractive runs; an interactive empty reply uses no materials.
@@ -86,6 +86,15 @@ def _interactive_config(config):
 def _show_report(report: dict, saved: Path) -> None:
     print(f"\n运行状态：{report['status']}")
     print(f"模型调用：{report.get('model_calls', 0)} 次；实际工具执行：{len(report.get('execution_ledger', []))} 次")
+    print(f"可视化模型调用：{report.get('visualization_model_calls', 0)} 次；"
+          f"绘图状态：{report.get('visualization_status', 'not_needed')}")
+    visualization_elapsed = sum(run.get("elapsed_seconds", 0) for run in report.get("visualization_runs", []))
+    if report.get("visualization_runs"):
+        print(f"可视化耗时：{visualization_elapsed:.2f} 秒")
+    for run in report.get("visualization_runs", []):
+        if run.get("error"):
+            error = run["error"]
+            print(f"绘图失败：{error['code']} — {error['message']}")
     profile = report.get("profile_result") or report.get("profile")
     if profile and profile.get("status") == "completed":
         print(f"数据概览：{profile['row_count']} 行 × {profile['column_count']} 列")
@@ -108,6 +117,9 @@ def _show_report(report: dict, saved: Path) -> None:
         print(f"任务简报：{report['brief_path']}")
     for path in report.get("result_csv_paths", []):
         print(f"结果 CSV：{path}")
+    for paths in report.get("chart_paths", []):
+        for kind, path in paths.items():
+            print(f"{'绘图数据 CSV' if kind == 'data_csv' else '图表 ' + kind.upper()}：{path}")
 
 
 def _conversation(config) -> int:
@@ -119,7 +131,7 @@ def _conversation(config) -> int:
     try:
         report = session.invoke(resolve_task(config))
         while True:
-            report, saved = save_session_report(report, config)
+            report, saved = save_session_report(report, config, session=session)
             _show_report(report, saved)
             if report.get("status") == "cancelled":
                 return 0
@@ -129,7 +141,7 @@ def _conversation(config) -> int:
             if report.get("status") == "awaiting_input":
                 reply = input("\n你的回答（输入退出结束）：").strip()
                 if reply.lower() in exit_words:
-                    report, saved = save_session_report(session.cancel(), config)
+                    report, saved = save_session_report(session.cancel(), config, session=session)
                     _show_report(report, saved)
                     return 0
                 if not reply:
@@ -142,7 +154,7 @@ def _conversation(config) -> int:
                     return 0 if report.get("status") == "completed" else 1
                 report = session.invoke(_task_text(follow_up))
     except (EOFError, KeyboardInterrupt):
-        cancelled, saved = save_session_report(session.cancel(), config)
+        cancelled, saved = save_session_report(session.cancel(), config, session=session)
         _show_report(cancelled, saved)
         print("当前会话已结束。")
         return 0
@@ -161,7 +173,7 @@ def main(*, interactive: bool = False) -> int:
         from labweaver.run_config import load_intake_config
         from labweaver.runtime.intake import execute_intake
     except ModuleNotFoundError:
-        executable = PROJECT_ROOT / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+        executable = Path.cwd() / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
         print(f"缺少项目依赖，请先安装依赖并选择项目解释器：{executable}", file=sys.stderr)
         return 2
     try:

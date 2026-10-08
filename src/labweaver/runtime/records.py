@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import csv
 import io
 import json
+import hashlib
 from pathlib import Path
 import re
 from uuid import uuid4
@@ -20,7 +21,7 @@ def _location_label(location: dict) -> str:
 
 def _result_tables(report: dict) -> list[dict]:
     """Validate program result tables before serializing artifacts."""
-    if report.get("status") != "completed":
+    if report.get("status") not in {"completed", "error"}:
         return []
     tables = []
     for result in report.get("analysis_results", []):
@@ -84,6 +85,16 @@ def _markdown_brief(report: dict) -> str:
         lines.extend(["", "统计请求：", "", "\x60\x60\x60json", json.dumps(result.get("spec", {}), ensure_ascii=False, indent=2, allow_nan=False), "\x60\x60\x60", ""])
         if result.get("truncated"):
             lines.extend(["结果已按工具规定截断；完整分组数量见 JSON。", ""])
+    if report.get("charts"):
+        lines.extend(["## 数据可视化", ""])
+        for chart in report["charts"]:
+            paths = chart.get("paths") or {}
+            if paths.get("png"):
+                name = Path(paths["png"]).name
+                lines.extend([f"![统计图表]({name})", "", f"图表：{chart['spec'].get('chart_type', '')}；数据 ID：{chart['data_id']}。", ""])
+                lines.append("文件：" + "、".join(f"[{extension}]({Path(path).name})" for extension, path in paths.items()))
+                lines.append("")
+        lines.extend([f"绘图决策：{report.get('visualization_reason', '')}", ""])
     lines.extend(["## 资料与来源", ""])
     for material in sources:
         lines.append(f"- {material['id']}：\x60{material['name']}\x60（{material.get('format', '')}）；SHA-256：\x60{material['sha256']}\x60")
@@ -101,7 +112,7 @@ def _markdown_brief(report: dict) -> str:
         lines.append("")
     lines.extend([
         "## 当前边界", "",
-        "仅执行只读概览、筛选、聚合和排名；源文件保持不变。",
+        "执行只读概览、筛选、聚合、排名、分布计算与受控绘图；源文件保持不变。",
         "引用记录证明片段实际检索到且出处可追溯，不自动证明回答的全部论断。",
         "当前进程的内存检查点支持继续对话；JSON 记录不提供退出后恢复。", "",
     ])
@@ -140,7 +151,8 @@ def _artifact_folder(report: dict, output_dir: str | Path) -> Path:
     return folder
 
 
-def save_run(report: dict, output_dir: str | Path = "runs", *, with_brief: bool = False) -> Path:
+def save_run(report: dict, output_dir: str | Path = "runs", *, with_brief: bool = False,
+             chart_assets: dict | None = None) -> Path:
     """Persist one task event and validated results using exclusive writes.
 
     Events are grouped by session and task. A failed write removes only files
@@ -152,6 +164,38 @@ def save_run(report: dict, output_dir: str | Path = "runs", *, with_brief: bool 
     brief_target = target.with_suffix(".md")
     document.pop("brief_path", None)
     document.pop("result_csv_paths", None)
+    document.pop("chart_paths", None)
+    chart_payloads = []
+    chart_paths = []
+    assets = chart_assets or {}
+    document["charts"] = [dict(chart) for chart in report.get("charts", [])]
+    chart_ids = [chart.get("chart_id") for chart in document["charts"]]
+    if len(chart_ids) != len(set(chart_ids)):
+        raise ValueError("Chart IDs must be unique.")
+    for chart in document["charts"]:
+        cid = chart.get("chart_id")
+        if not isinstance(cid, str) or re.fullmatch(r"[A-Za-z0-9_-]{1,80}", cid) is None:
+            raise ValueError("A chart requires a safe registered identifier.")
+        asset = assets.get(cid)
+        metadata = {key: value for key, value in chart.items() if key != "paths"}
+        if not isinstance(asset, dict) or asset.get("metadata") != metadata:
+            raise ValueError("A chart requires matching registered host assets.")
+        if metadata.get("source") != report.get("source") or any(metadata.get(key) != report.get(key) for key in ("session_id", "task_id")):
+            raise ValueError("A chart must match its session, task and source.")
+        png, svg, data_csv = asset.get("png"), asset.get("svg"), asset.get("data_csv")
+        if not isinstance(png, bytes) or not png.startswith(b'\x89PNG\r\n\x1a\n') or not isinstance(svg, bytes) or b'<svg' not in svg or not isinstance(data_csv, str):
+            raise ValueError("Chart assets must contain real PNG, SVG and data CSV payloads.")
+        chart["paths"] = {}
+        for extension, payload in (("png", png), ("svg", svg), ("data_csv", data_csv.encode("utf-8"))):
+            if metadata.get("hashes", {}).get(extension) != hashlib.sha256(payload).hexdigest():
+                raise ValueError("Chart asset hash mismatch.")
+            suffix = "csv" if extension == "data_csv" else extension
+            path = target.with_name(f"{target.stem}-chart-{cid}.{suffix}")
+            chart["paths"][extension] = str(path.resolve())
+            chart_payloads.append((path, payload))
+        chart_paths.append(dict(chart["paths"]))
+    if chart_paths:
+        document["chart_paths"] = chart_paths
     result_payloads = []
     for number, result in enumerate(_result_tables(document), 1):
         csv_target = target.with_name(f"{target.stem}-result-{number}.csv")
@@ -170,6 +214,9 @@ def save_run(report: dict, output_dir: str | Path = "runs", *, with_brief: bool 
     folder.mkdir(parents=True, exist_ok=True)
     created = []
     try:
+        for chart_target, chart_payload in chart_payloads:
+            _write_binary_exclusive(chart_target, chart_payload)
+            created.append(chart_target)
         for csv_target, csv_payload in result_payloads:
             _write_exclusive(csv_target, csv_payload)
             created.append(csv_target)
@@ -183,3 +230,15 @@ def save_run(report: dict, output_dir: str | Path = "runs", *, with_brief: bool 
             path.unlink(missing_ok=True)
         raise
     return target
+
+
+def _write_binary_exclusive(target: Path, payload: bytes) -> None:
+    created = False
+    try:
+        with target.open("xb") as stream:
+            created = True
+            stream.write(payload)
+    except BaseException:
+        if created:
+            target.unlink(missing_ok=True)
+        raise

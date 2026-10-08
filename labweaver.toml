@@ -16,3 +16,4 @@ materials = [
 # Model credentials default to .env beside this file, or LLM_* environment variables.
 # Never put credentials in this TOML.
 # Reference an existing .env via env_file in ignored labweaver.local.toml.
+# Advanced chart override: font_path = "path/to/Chinese-font.ttf".

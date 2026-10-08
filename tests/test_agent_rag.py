@@ -115,7 +115,7 @@ def test_materials_are_optional_and_unused_materials_are_not_opened(csv_path, tm
     assert calls == []
     assert "无需资料" in report["retrieval_reason"]
     assert model.bound_tool_sets[0] == ["profile_csv"]
-    assert set(model.bound_tool_sets[1]) == {"analyze_csv", "ask_user", "search_materials"}
+    assert set(model.bound_tool_sets[1]) == {"analyze_csv", "ask_user", "prepare_distribution", "search_materials"}
     _assert_paired_execution(report)
 
 
@@ -129,7 +129,7 @@ def test_no_materials_do_not_expose_search_and_get_disclosure(csv_path):
 
 
 def test_explicit_material_requirement_cannot_complete_without_search(csv_path, material_path):
-    model = RagScriptedModel(responses=[_call(), _answer()])
+    model = RagScriptedModel(responses=[_call(), _answer(), _answer()])
     report = run_intake("基于资料说明解释 score 字段", csv_path, model, material_paths=[material_path])
     assert report["status"] == "error"
     assert report["error"]["code"] == "missing_retrieval"
@@ -324,7 +324,7 @@ def test_material_instructions_cannot_expand_authorization(csv_path, material_pa
     assert report["status"] == "error"
     assert report["error"]["code"] == "tool_not_allowed"
     assert [v["name"] for v in report["execution_ledger"]] == ["profile_csv", "search_materials"]
-    assert all(set(names) <= {"profile_csv", "analyze_csv", "ask_user", "search_materials"} for names in model.bound_tool_sets)
+    assert all(set(names) <= {"profile_csv", "analyze_csv", "ask_user", "search_materials", "prepare_distribution", "delegate_visualization"} for names in model.bound_tool_sets)
     assert _hashes([csv_path, material_path]) == before
 
 
@@ -423,7 +423,7 @@ def test_dynamic_tool_schemas_reach_the_actual_openai_http_payload(csv_path, mat
     sent_tools = [[tool["function"]["name"] for tool in request["tools"]] for request in requests]
     assert sent_tools[0] == ["profile_csv"]
     assert sent_tools[1] == ["search_materials"]
-    assert set(sent_tools[2]) == {"analyze_csv", "ask_user", "search_materials"}
+    assert set(sent_tools[2]) == {"analyze_csv", "ask_user", "prepare_distribution", "search_materials"}
     assert report["tool_exposure"] == [sorted(names) for names in sent_tools]
     assert all(request.get("tool_choice") in {None, "auto"} for request in requests)
     assert "实际开放的工具：search_materials" in requests[1]["messages"][0]["content"]
@@ -459,7 +459,7 @@ def test_format_selection_does_not_answer_a_separate_business_scope_question(tmp
     year_pending = session.resume("1")
     assert year_pending["status"] == "awaiting_input", year_pending
     assert year_pending["question"] == "统计全部年份还是指定年份？"
-    assert set(year_pending["tool_exposure"][-1]) == {"analyze_csv", "ask_user"}
+    assert set(year_pending["tool_exposure"][-1]) == {"analyze_csv", "ask_user", "prepare_distribution"}
     completed = session.resume("全部年份、按 Revenue 累计、保留原始 Department")
     assert completed["status"] == "completed", completed
     assert completed["analysis_results"][0]["rows"] == [{"column_2": "Sales", "revenue": 6}]

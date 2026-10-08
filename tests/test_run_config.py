@@ -241,6 +241,32 @@ def test_material_configuration_does_not_read_source_files(tmp_path, monkeypatch
     assert not config.material_paths[0].exists()
 
 
+def test_font_path_uses_configuration_and_cli_path_precedence(tmp_path, monkeypatch):
+    folder = tmp_path / "project"
+    folder.mkdir()
+    public = _toml(folder / "custom.toml", 'font_path = "fonts/chinese.ttf"\n')
+    monkeypatch.chdir(tmp_path)
+    assert load_intake_config(public).font_path == folder / "fonts/chinese.ttf"
+    assert load_intake_config(public, overrides={"font_path": "chosen.ttf"}).font_path == tmp_path / "chosen.ttf"
+
+
+def test_cli_font_path_reaches_runtime_without_extra_questions(tmp_path, monkeypatch, capsys):
+    from labweaver.cli import main
+    import labweaver.runtime.intake as intake_runtime
+
+    monkeypatch.chdir(tmp_path)
+    observed = []
+
+    def observe(config):
+        observed.append(config)
+        return {"status": "completed"}, tmp_path / "run.json"
+
+    monkeypatch.setattr(intake_runtime, "execute_intake", observe)
+    assert main(["intake", "--offline", "--font-path", "chosen.ttf"]) == 0
+    capsys.readouterr()
+    assert observed[0].font_path == tmp_path / "chosen.ttf"
+
+
 @pytest.mark.parametrize("value", ["one.md", None, False, {}, [None], [True], [""], [1]])
 def test_invalid_material_arrays_are_configuration_errors(tmp_path, monkeypatch, value):
     monkeypatch.chdir(tmp_path)

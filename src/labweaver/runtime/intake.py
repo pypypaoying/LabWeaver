@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from labweaver.agent import create_session, run_intake
+from labweaver.agent import create_session
 from labweaver.config import ConfigurationError, create_model, load_config
 from labweaver.run_config import IntakeConfig
 from labweaver.runtime.records import save_run
@@ -40,19 +40,27 @@ def _selected_model(config: IntakeConfig):
 
 def create_runtime_session(config: IntakeConfig):
     """Bind a model and source once for the current interactive process."""
+    visualization_model = None
+    if config.mode == "offline":
+        from labweaver.offline import OfflineVisualizationModel
+
+        visualization_model = OfflineVisualizationModel()
     return create_session(
         config.csv_path, _selected_model(config),
         material_paths=config.material_paths, encoding=config.encoding,
         delimiter=config.delimiter, sample_rows=config.sample_rows,
+        visualization_model=visualization_model, font_path=config.font_path,
     )
 
 
-def save_session_report(report: dict, config: IntakeConfig) -> tuple[dict, Path]:
+def save_session_report(report: dict, config: IntakeConfig, *, session=None) -> tuple[dict, Path]:
     """Save a pending/error event or a completed brief and result tables."""
     report["mode"] = config.mode
-    saved = save_run(report, config.output_dir, with_brief=report.get("status") == "completed")
+    saved = save_run(report, config.output_dir, with_brief=report.get("status") == "completed",
+                     chart_assets=session.chart_assets if session is not None else None)
     document = json.loads(saved.read_text(encoding="utf-8"))
-    for key in ("brief_path", "result_csv_paths"):
+    for key in ("run_id", "recorded_at", "brief_path", "result_csv_paths", "chart_paths",
+                "charts", "plot_data_csv_paths"):
         if key in document:
             report[key] = document[key]
     return report, saved
@@ -61,9 +69,6 @@ def save_session_report(report: dict, config: IntakeConfig) -> tuple[dict, Path]
 def execute_intake(config: IntakeConfig) -> tuple[dict, Path]:
     """Run one task without an input loop; pending questions remain recorded."""
     task = resolve_task(config)
-    report = run_intake(
-        task, config.csv_path, _selected_model(config),
-        encoding=config.encoding, delimiter=config.delimiter,
-        sample_rows=config.sample_rows, material_paths=config.material_paths,
-    )
-    return save_session_report(report, config)
+    session = create_runtime_session(config)
+    report = session.invoke(task)
+    return save_session_report(report, config, session=session)

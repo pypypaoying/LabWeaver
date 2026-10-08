@@ -12,26 +12,7 @@
       "osx": {
         "python": "${workspaceFolder}/.venv/bin/python"
       },
-      "program": "${workspaceFolder}/run_labweaver.py",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "env": {
-        "PYTHONUTF8": "1"
-      }
-    },
-    {
-      "name": "LabWeaver: real data (compatibility entry)",
-      "type": "debugpy",
-      "request": "launch",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "linux": {
-        "python": "${workspaceFolder}/.venv/bin/python"
-      },
-      "osx": {
-        "python": "${workspaceFolder}/.venv/bin/python"
-      },
-      "program": "${workspaceFolder}/run_real_checks.py",
+      "module": "labweaver.app",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": true,

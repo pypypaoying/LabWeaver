@@ -34,12 +34,13 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked --python ${{ matrix.python }}
+      - name: Install Chinese chart fonts
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
       - name: Run offline tests
         run: uv run --frozen pytest -q
       - name: Verify config-driven offline intake
         run: uv run --frozen labweaver intake --offline
       - name: Verify experimental-data intake overrides
         run: uv run --frozen labweaver intake --config examples/configs/experiments.toml
-      - name: Verify optional retrieval, resumed statistics and result artifacts
-        run: uv run --frozen python verify_d3.py
 

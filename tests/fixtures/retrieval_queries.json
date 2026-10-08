@@ -19,7 +19,7 @@
   },
   {
     "id": "survey_alternative_goal",
-    "materials": ["examples/materials/survey/requirements_alternative.md", "examples/materials/survey/variables.txt", "examples/materials/survey/methods.pdf"],
+    "materials": ["tests/fixtures/requirements_alternative.md", "examples/materials/survey/variables.txt", "examples/materials/survey/methods.pdf"],
     "query": "总体满意度分布部门排名",
     "expected": {"source_name": "requirements_alternative.md", "text_contains": "不应默认按部门分组"}
   },

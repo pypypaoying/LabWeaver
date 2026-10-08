@@ -27,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--delimiter", type=_delimiter)
     command.add_argument("--sample-rows", type=int)
     command.add_argument("--output-dir", type=Path)
+    command.add_argument("--font-path", type=Path, help="Optional font file for chart labels")
     command.add_argument("--material", action="append", type=Path, dest="materials")
     task = command.add_mutually_exclusive_group()
     task.add_argument("--task")
@@ -64,8 +65,11 @@ def main(argv: list[str] | None = None) -> int:
     if report.get("result_csv_paths"):
         for path in report["result_csv_paths"]:
             print(f"Result CSV saved: {path}", file=sys.stderr)
+    for paths in report.get("chart_paths", []):
+        for kind, path in paths.items():
+            print(f"Chart {kind} saved: {path}", file=sys.stderr)
     if report.get("status") == "awaiting_input":
-        print("A reply is required. Use run_labweaver.py in VS Code for a continuous conversation.", file=sys.stderr)
+        print("A reply is required. Run labweaver.app in VS Code for a continuous conversation.", file=sys.stderr)
         return 3
     return 0 if report.get("status") == "completed" else 1
 

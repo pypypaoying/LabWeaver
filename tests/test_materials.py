@@ -381,7 +381,7 @@ def test_unwritable_cache_fails_before_jieba_mkstemp(tmp_path, monkeypatch):
 
 
 def test_labeled_project_retrieval_queries():
-    cases = json.loads((PROJECT / "examples" / "retrieval_queries.json").read_text(encoding="utf-8"))
+    cases = json.loads((PROJECT / "tests/fixtures/retrieval_queries.json").read_text(encoding="utf-8"))
     assert len(cases) >= 5
     for case in cases:
         index = build_material_index([PROJECT / path for path in case["materials"]])
@@ -400,7 +400,7 @@ def test_same_survey_csv_with_alternative_material_changes_retrieved_goal():
     csv_path = PROJECT / "examples" / "data" / "survey.csv"
     csv_bytes = csv_path.read_bytes()
     ordinary = build_material_index([SURVEY / "requirements.md"])
-    alternative = build_material_index([SURVEY / "requirements_alternative.md"])
+    alternative = build_material_index([PROJECT / "tests/fixtures/requirements_alternative.md"])
     query = "satisfaction department 满意度分布"
     ordinary_text = "".join(match["text"] for match in ordinary.search(query)["matches"])
     alternative_text = "".join(match["text"] for match in alternative.search(query)["matches"])

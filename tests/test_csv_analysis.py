@@ -34,7 +34,7 @@ def result(data, request):
 
 def test_real_task_synthetic_medal_ranking_and_year_followup():
     import csv
-    path = Path(__file__).parents[1] / "examples/data/medals.csv"
+    path = Path(__file__).parents[1] / "tests/fixtures/medals.csv"
     before = hashlib.sha256(path.read_bytes()).hexdigest()
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)

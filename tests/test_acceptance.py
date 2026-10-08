@@ -1,16 +1,17 @@
-"""One-click offline acceptance for retrieval and continuous CSV statistics.
-
-The historical filename is retained for compatibility. These checks validate
-real tool results and artifacts, using a deterministic model and no API.
-"""
+"""Offline pytest acceptance of real retrieval, statistics, resume, and artifacts."""
 
 from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+import json
+import os
+import socket
 import sys
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+import pytest
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_CHECKS = 12
 
 
@@ -84,7 +85,7 @@ def _check_tool_evidence(report: dict, model) -> None:
         _check(json.loads(result["content"]) == execution["result"], "ToolMessage equals execution result")
     _check({entry["tool_call_id"] for entry in ledger} <= set(model.seen_tool_results),
            "Offline model consumed actual ToolMessages")
-    _check(all(set(tools) <= {"profile_csv", "analyze_csv", "search_materials", "ask_user"}
+    _check(all(set(tools) <= {"profile_csv", "analyze_csv", "search_materials", "ask_user", "prepare_distribution", "delegate_visualization"}
                for tools in model.bound_tool_sets), "Only allowed tools exposed")
 
 
@@ -113,14 +114,14 @@ def _check_saved(report: dict, saved: Path) -> None:
         _check(actual == expected, "Result CSV exactly matches tool table")
 
 
-def main() -> int:
+def _acceptance(output_dir: Path) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     if sys.version_info < (3, 11):
         print("[FAIL] 请在 VS Code 中选择项目 .venv 的 Python 3.11+ 解释器。")
         return 1
-    passed, stage, output_dir = 0, "初始化离线验证", None
+    passed, stage = 0, "初始化离线验证"
 
     def pass_check(label: str):
         nonlocal passed
@@ -129,7 +130,6 @@ def main() -> int:
 
     try:
         import json
-        from uuid import uuid4
 
         with _offline_environment(PROJECT_ROOT) as network_attempts:
             from labweaver.agent import create_session, run_intake
@@ -137,8 +137,7 @@ def main() -> int:
             from labweaver.offline import OfflineIntakeModel
             from labweaver.runtime.records import save_run
 
-            output_dir = PROJECT_ROOT / "runs" / ("session-verification-" + uuid4().hex)
-            labeled = json.loads(_project_path("examples/retrieval_queries.json").read_text(encoding="utf-8"))
+            labeled = json.loads(_project_path("tests/fixtures/retrieval_queries.json").read_text(encoding="utf-8"))
             _check(len(labeled) == 7, "Seven labeled retrieval queries")
             all_inputs = {}
             indices = {}
@@ -220,7 +219,7 @@ def main() -> int:
             pass_check(stage)
 
             stage = "奖牌任务真正暂停等待口径"
-            medal_csv = _project_path("examples/data/medals.csv")
+            medal_csv = _project_path("tests/fixtures/medals.csv")
             all_inputs.update(_hashes([medal_csv]))
             model = OfflineIntakeModel()
             session = create_session(medal_csv, model)
@@ -286,5 +285,75 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def _load_runner():
+    return sys.modules[__name__]
+
+
+def test_offline_context_denies_connections_and_restores_cwd_and_environment_on_error(tmp_path, monkeypatch):
+    runner = _load_runner()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LANGSMITH_TRACING", "true")
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "unusual-existing-value")
+    monkeypatch.delenv("LANGCHAIN_TRACING", raising=False)
+    before_environment = dict(os.environ)
+    before_connections = (socket.create_connection, socket.socket.connect, socket.socket.connect_ex)
+    with pytest.raises(ValueError, match="controlled failure"):
+        with runner._offline_environment(runner.PROJECT_ROOT) as attempts:
+            assert Path.cwd() == runner.PROJECT_ROOT
+            assert all(os.environ[name] == "false" for name in
+                       ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGCHAIN_TRACING"))
+            with pytest.raises(RuntimeError, match="network connection"):
+                socket.create_connection(("example.invalid", 443))
+            assert attempts == [True]
+            raise ValueError("controlled failure")
+    assert Path.cwd() == tmp_path
+    assert dict(os.environ) == before_environment
+    assert (socket.create_connection, socket.socket.connect, socket.socket.connect_ex) == before_connections
+
+
+def test_main_suppresses_arbitrary_failure_text_and_restores_state(tmp_path, monkeypatch, capsys):
+    runner = _load_runner()
+    monkeypatch.chdir(tmp_path)
+    before_cwd = Path.cwd()
+    before_environment = dict(os.environ)
+
+    def fail_to_read_resources(relative):
+        raise ValueError("private-test-api-key-should-never-be-printed")
+
+    monkeypatch.setattr(runner, "_project_path", fail_to_read_resources)
+    assert runner._acceptance(tmp_path / "artifacts") == 1
+    captured = capsys.readouterr()
+    assert "ValueError" in captured.err
+    assert "private-test-api-key" not in captured.out + captured.err
+    assert "Passed: 0/12" in captured.out
+    assert Path.cwd() == before_cwd
+    assert dict(os.environ) == before_environment
+
+
+def test_main_verifies_actual_statistics_resume_and_artifacts_without_credentials(tmp_path, monkeypatch, capsys):
+    runner = _load_runner()
+    import labweaver.config as configuration
+    import labweaver.runtime.records as records
+
+    def deny_credentials(*args, **kwargs):
+        raise AssertionError("Offline acceptance must not load model credentials or create a live model.")
+
+    monkeypatch.setattr(configuration, "load_config", deny_credentials)
+    monkeypatch.setattr(configuration, "create_model", deny_credentials)
+    actual_save = records.save_run
+
+    def temporary_artifacts(report, output_dir, **kwargs):
+        return actual_save(report, tmp_path / "artifacts", **kwargs)
+
+    monkeypatch.setattr(records, "save_run", temporary_artifacts)
+    monkeypatch.chdir(tmp_path)
+    previous = (Path.cwd(), dict(os.environ), socket.create_connection, socket.socket.connect)
+    assert runner._acceptance(tmp_path / "artifacts") == 0
+    output = capsys.readouterr()
+    assert "Passed: 12/12" in output.out and output.err == ""
+    assert previous == (Path.cwd(), dict(os.environ), socket.create_connection, socket.socket.connect)
+    saved = [json.loads(path.read_text(encoding="utf-8")) for path in (tmp_path / "artifacts").rglob("*.json")]
+    assert sum(report["status"] == "awaiting_input" for report in saved) == 1
+    tables = [report["analysis_results"][0] for report in saved if report.get("analysis_results")]
+    assert sorted(table["rows"][0]["total_medals"] for table in tables) == [12, 22]
+    assert len(list((tmp_path / "artifacts").rglob("*result-1.csv"))) == 2

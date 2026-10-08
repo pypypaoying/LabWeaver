@@ -43,7 +43,7 @@ def test_brief_pair_has_same_stem_real_locations_and_exact_json_path(tmp_path):
     assert "[D1-C1] requirements.md" in text and "第 2–4 行" in text
     assert "[D2-C1] methods.pdf" in text and "第 3 页" in text
     assert "a" * 64 in text and "比较分组均值。" in text
-    assert "仅执行只读概览、筛选、聚合和排名" in text
+    assert "执行只读概览、筛选、聚合、排名、分布计算与受控绘图" in text
     assert report == before
 
 

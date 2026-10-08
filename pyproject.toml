@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "labweaver"
 version = "0.1.0"
-description = "A conversational CSV statistics agent with optional traceable retrieval"
+description = "A conversational CSV analysis assistant with specialized visualization agents"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
@@ -16,6 +16,7 @@ dependencies = [
     "rank-bm25>=0.2.2,<0.3",
     "jieba>=0.42.1,<0.43",
     "charset-normalizer>=3.4,<4",
+    "matplotlib>=3.10.8,<3.11",
 ]
 
 [project.scripts]

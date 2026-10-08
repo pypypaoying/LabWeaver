@@ -1,72 +1,71 @@
-# 架构与下一步
+# 架构
 
-LabWeaver 是通用 CSV 数据任务助手：查看实际字段和数据，按任务决定资料需求，执行受控只读统计，并处理影响结果的澄清。
+LabWeaver 在固定 CSV 快照上执行通用只读统计。分析主 Agent 保留 Deep Agents，受控委派工具调用独立 LangChain 可视化 Agent。两者有独立提示词、消息上下文和工具集合，默认共用模型配置。
 
 ```mermaid
 flowchart LR
-    U["CSV、可选资料、任务"] --> UI["VS Code 对话入口 / 单次 CLI"]
-    UI --> RT["运行配置与模型适配"]
-    RT --> S["AgentSession / 固定 thread_id"]
-    S --> H["Deep Agents + Harness"]
-    H --> P["CSV 快照与 profile_csv"]
-    H --> R["按需 search_materials"]
-    H --> A["analyze_csv"]
-    H --> Q["ask_user / interrupt"]
-    Q --> UI
-    UI --> B["Command resume"]
-    B --> S
-    P --> E["实际工具结果、调用 ID 与执行账本"]
-    R --> E
+    U["CSV、可选资料、任务"] --> S["app / CLI / AgentSession"]
+    S --> A["分析主 Agent + Harness"]
+    A --> P["profile_csv / 固定快照"]
+    A --> R["按需 search_materials"]
+    A --> C["analyze_csv / prepare_distribution"]
+    A --> Q["ask_user / interrupt"]
+    Q --> S
+    C --> D["宿主授权 data_id"]
+    A --> V["delegate_visualization"]
+    D --> V
+    V --> B["可视化 Agent"]
+    B --> G["get_plot_data / render_chart"]
+    G --> E["真实工具账本与资产登记"]
     A --> E
-    E --> V["证据及引用校验"]
-    V --> O["JSON、Markdown、结果 CSV"]
+    E --> O["JSON、Markdown、结果 CSV、PNG、SVG、绘图数据"]
 ```
 
-## 模块职责
+## 模块
 
-`run_config.py` 解析默认、公开 TOML、本地 TOML与入口覆盖；`config.py` 读取模型凭据并构造 ChatOpenAI。配置载入不读取 CSV/资料，离线运行不读取凭据。
+| 模块 | 职责 |
+| --- | --- |
+| `app.py` | 唯一正常对话入口；三个日常输入、暂停回复、追问与取消 |
+| `cli.py` | 单次 intake、配置覆盖和退出码 |
+| `run_config.py` / `config.py` | 公共/本地 TOML 分层、路径校验、模型配置与适配 |
+| `agent.py` | 会话、Deep Agents 主图、预算、工具白名单、证据与引用核验 |
+| `visualizer.py` | 独立 LangChain 子图、授权数据、子模型预算与真实绘图验证 |
+| `tools/` | 严格 CSV 快照、概览、统计、分布和 Matplotlib 绘图模板 |
+| `materials.py` | TXT/Markdown/PDF 解析、出处与延迟 BM25 索引 |
+| `offline.py` | 确定性双模型演示与验证，仍调用真实工具 |
+| `runtime/intake.py` | 模型选择、共享会话和报告保存 |
+| `runtime/records.py` | 排他保存 JSON、简报、结果表及会话内部图表资产 |
 
-`runtime/intake.py` 共用任务读取、模型选择、创建会话和保存报告。VS Code 的 `run_labweaver.py` 收集用户输入、回复澄清、接受追问；CLI intake 保留为单次运行接口。兼容入口 `run_real_checks.py` 复用正常流程。
+配置加载不读取 CSV、资料或模型密钥。默认配置来自工作目录，安装位置不决定配置。资料索引在第一次搜索时创建；提供资料不会强制检索。
 
-CSV 工具独立于模型，严格自动识别并解析完整文件，生成只读快照。概览和分析使用同一快照，以一基列位置区分重复表头。analyze_csv 只接受结构化筛选/聚合/排序，不执行任意代码，也不能改变绑定路径。
+## 计算与授权
 
-`tools/analysis_schema.py` 用 Pydantic 定义模型可见的筛选、指标和排序结构，保留整数及编号的原始类型；`tools/csv_analysis.py` 完成独立校验和确定性计算。参数验证失败同样记录到执行边界账本，不能冒充计算成果。
+概览、聚合和分布使用同一只读 CSV 快照。列用一基位置标识，保留重复或空表头。分析工具仅接受结构化筛选、聚合、排序和 Top K；不执行模型代码，不接受新文件路径。整数求和保持精度，数值聚合排除空白，未排除的非法或非有限数值报错。
 
-`materials.py` 是资料解析与本地检索服务；模型调用的工具是 Agent 里绑定本次资料的 `search_materials` 包装。文件读取与索引推迟到首次搜索。检索返回真实片段、哈希和位置，引用校验不等于自动证明回答的每句话。
+真实统计结果获得 `data_id`，绑定会话、任务、源哈希和计算口径。可视化 Agent 只能调用 `get_plot_data(data_id)` 和 `render_chart(data_id, spec)`，访问本次授权结果；不能提供数据表、路径或代码。绘图数据来自真实统计或完整快照分箱。折线按实际数值、ISO 年月或日期排序，重复横轴先聚合；截断表格注明展示范围。
 
-`agent.py` 创建模型执行图、InMemorySaver 与固定 thread_id，并维护会话、任务预算、工具账本及状态。Harness 隐藏并拒绝白名单外的文件/委派等框架工具，要求实际概览先于分析/检索，预算与执行按调用 ID 去重。
+PNG、SVG 和绘图数据在会话内部登记，并保存来源、图表规格与哈希。图表成功依赖工具账本及资产，子 Agent 的文字回复不构成交付证据。JSON 不包含图片字节或全量原始数值。
 
-系统提示词只保留通用角色、执行与澄清原则、按需检索、证据要求和输出协议，不指定行业、业务字段或固定分析目标。参数细节放在工具 schema，资源与预算限制放在 Harness；实际开放工具和已检索出处按运行状态补充。是否需要澄清由模型结合任务、字段和已有回复判断，代码不因某个业务字段存在而强制提问。`offline.py` 的奖牌分支是确定性验收脚本，在线模型不使用该分支。
+## Harness 与状态
 
-`runtime/records.py` 保存严格 JSON、成功任务的 Markdown 与独立结果 CSV。原始日志不发布，输出不覆盖已有文件，写失败只清理当次创建的产物。结果表直接来自实际工具结果。
+主图隐藏默认文件和通用委派工具，只保留受控统计、检索、澄清及可视化委派。子图不询问用户，计算口径由主 Agent 的 `ask_user` / `interrupt` 处理。
 
-`offline.py` 是确定性模型测试替身，仍通过真实 Deep Agents 图发出工具调用并读取匹配 ToolMessage；它验证执行流程，不能代表真实 LLM 理解能力。
+| 每任务预算 | 上限 |
+| --- | ---: |
+| 主模型调用 | 12 |
+| 子模型调用总数 | 6 |
+| 概览 / 检索 / 分析 / 澄清 | 1 / 3 / 4 / 3 |
+| 分布准备 / 可视化委派 | 各 2 |
+| 绘图尝试 / 最终图表 | 4 / 2 |
 
-## 状态与计算边界
+恢复使用同一检查点，预算和执行按调用 ID 去重；新任务开始新预算，保留会话上下文。状态为 `awaiting_input`、`completed`、`error`、`cancelled`。计算型任务必须有真实聚合或分布结果，不能以建议方案替代。引用必须来自实际检索片段。
 
-- `awaiting_input`：LangGraph 真正中断，待用户输入后恢复同一任务。
-- `completed`：工具证据匹配，计算型任务有真实分析结果，资料引用按实际命中校验。
-- `error`：解析、模型、预算或证据校验失败，记录原因。
-- `cancelled`：用户中止当前任务。
+绘图子任务失败保留已完成统计，明确记录绘图错误；没有委派记录 `not_needed`。更换 CSV 创建新会话。程序退出会丢失内存检查点，JSON 只记录成果。
 
-已有确认保留在同一会话中，新任务使用新的任务预算。模型最多 12 次、检索三次、分析四次、澄清三次；恢复不重置。退出程序会丢失内存检查点，JSON 仅是记录。
+## 产物与仓库边界
 
-源文件保持只读。筛选和聚合不是清洗源数据；历史国家标签不会默认合并。数值聚合排除缺失，遇到未排除的非法数值报错；整数求和保持精度。
+`session.save()` 将当前报告及宿主图表资产交给 runtime。事件按会话/任务分目录，每次使用唯一文件名及排他写入，失败仅清理本次创建的文件。完成事件保存 Markdown，其他状态保留 JSON；成果表和绘图数据由程序生成。
 
-## 下一步
+生产入口在包内，测试在 `tests/`，两套演示在 `examples/`。历史临时入口和阶段文档从当前目录移除，Git 历史保留。发布审查包括已跟踪文件的删除和暂存文件归属，忽略规则不能替代删除已跟踪废弃文件。
 
-1. 在当前单 Agent 基线上，用更多真实表结构评估自动读取、澄清质量、检索选择和统计准确率。
-2. 任务复杂度需要时加入分析与核验子 Agent，比较准确性、引用支持与调用成本。
-3. 若用户需要跨进程恢复，接入持久化 checkpointer，并验证预算、账本和源快照的一致性。
-4. 在独立需求下增加清洗、建模与绘图工具，分别定义写入边界与成果验收。
-
-详见 [连续统计实现与验收](session-statistics.md)。历史 D3 的资料检索与简报基线记录保留在 [D3 记录](day3-results.md)。
-
-## 框架来源
-
-- [Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview)：Agent 图与中间件基础。
-- [LangGraph 中断与恢复](https://docs.langchain.com/oss/python/langgraph/interrupts)：interrupt、Command 和检查点。
-- [Python CSV](https://docs.python.org/3.11/library/csv.html)：严格 CSV 解析。
-- [charset-normalizer](https://charset-normalizer.readthedocs.io/en/latest/user/advanced_search.html)：legacy 编码候选推断。
-
-项目特定的 CSV 格式策略、聚合工具、文件绑定、预算/执行账本、证据校验、交互入口和产物保存由 LabWeaver 实现。
+框架依据：[Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview)、[子 Agent 作为工具](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)、[LangGraph 中断](https://docs.langchain.com/oss/python/langgraph/interrupts)。CSV 策略、统计模板、授权、预算、证据核验与产物保存由 LabWeaver 实现。

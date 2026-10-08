@@ -22,6 +22,7 @@ class IntakeConfig:
     sample_rows: int
     output_dir: Path
     material_paths: tuple[Path, ...] = ()
+    font_path: Path | None = None
 
 
 _DEFAULTS = {
@@ -35,8 +36,8 @@ _DEFAULTS = {
     "materials": [],
 }
 _KEYS = frozenset({"csv", "task", "task_file", "mode", "env_file", "encoding",
-                   "delimiter", "sample_rows", "output_dir", "materials"})
-_PATH_KEYS = frozenset({"csv", "task_file", "env_file", "output_dir"})
+                   "delimiter", "sample_rows", "output_dir", "materials", "font_path"})
+_PATH_KEYS = frozenset({"csv", "task_file", "env_file", "output_dir", "font_path"})
 
 
 def _normalize_delimiter(value: Any) -> str:
@@ -158,4 +159,5 @@ def load_intake_config(
         sample_rows=settings["sample_rows"],
         output_dir=settings["output_dir"],
         material_paths=settings["materials"],
+        font_path=settings.get("font_path"),
     )

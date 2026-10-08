@@ -100,7 +100,7 @@ def test_offline_summary_real_tools_no_network(csv_path, monkeypatch):
     assert r["profile"]["row_count"] == 3 and r["profile"]["column_count"] == 2
     assert r["model_calls"] == 2 and r["tool_counts"]["profile_csv"] == 1
     assert set(model.bound_tool_sets[0]) == {"profile_csv"}
-    assert set(model.bound_tool_sets[-1]) == {"analyze_csv", "ask_user"}
+    assert set(model.bound_tool_sets[-1]) == {"analyze_csv", "ask_user", "prepare_distribution"}
     assert "3 行、2 列" in r["final_answer"]
     assert r["retrieval_status"] == "unavailable" and not connections
     assert hashlib.sha256(csv_path.read_bytes()).hexdigest() == before
@@ -109,7 +109,7 @@ def test_offline_summary_real_tools_no_network(csv_path, monkeypatch):
 
 
 def test_medal_clarify_execute_followup_and_budget():
-    p = Path("examples/data/medals.csv")
+    p = Path("tests/fixtures/medals.csv")
     digest = hashlib.sha256(p.read_bytes()).hexdigest()
     s = create_session(p, OfflineIntakeModel())
     graph = s.graph
@@ -120,6 +120,8 @@ def test_medal_clarify_execute_followup_and_budget():
         "search_materials": 0,
         "analyze_csv": 0,
         "ask_user": 1,
+        "prepare_distribution": 0,
+        "delegate_visualization": 0,
     }
     assert r["model_calls"] == 2
     task_id = r["task_id"]
@@ -319,7 +321,7 @@ def test_budget_resume_not_reset(csv_path):
 
 
 def test_cancel_and_invalid_transitions():
-    s = create_session("examples/data/medals.csv", OfflineIntakeModel())
+    s = create_session("tests/fixtures/medals.csv", OfflineIntakeModel())
     with pytest.raises(ValueError):
         s.resume("x")
     s.invoke("前5个国家")

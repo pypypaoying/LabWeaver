@@ -1,7 +1,7 @@
-"""Exercise the VS Code conversation and legacy entry without live credentials."""
+"""Exercise the packaged VS Code conversation without live credentials."""
 
 import csv
-import importlib.util
+import importlib
 import json
 from pathlib import Path
 from unittest.mock import Mock
@@ -13,10 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _runner():
-    spec = importlib.util.spec_from_file_location("conversation_runner_under_test", ROOT / "run_labweaver.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return importlib.import_module("labweaver.app")
 
 
 def _completed(source, task_id, rows):
@@ -45,6 +42,7 @@ def test_interactive_entry_accepts_answers_and_followups_and_saves_real_tables(t
     all_years = _completed(source, "task-one", [{"NOC": "A", "medals": 12}, {"NOC": "B", "medals": 7}])
     year = _completed(source, "task-two", [{"NOC": "A", "medals": 5}, {"NOC": "B", "medals": 3}])
     session = Mock()
+    session.chart_assets = {}
     session.invoke.side_effect = [pending, year]
     session.resume.return_value = all_years
     session_factory = Mock(return_value=session)
@@ -89,6 +87,7 @@ def test_pending_reply_exit_cancels_without_resuming(tmp_path, monkeypatch):
         "mode": "offline", "task": "统计前五", "output_dir": str(tmp_path / "runs"),
     })
     session = Mock()
+    session.chart_assets = {}
     session.invoke.return_value = {
         "status": "awaiting_input", "session_id": "s1", "task_id": "t1", "question": "哪些年份？",
     }
@@ -111,13 +110,6 @@ def test_external_task_file_and_quoted_file_path_are_user_selected(tmp_path):
     assert runner._selected_file('"' + str(data) + '"') == data
     assert runner._task_text("@" + str(task)) == "按全部年份统计奖牌前五"
     assert runner._task_text("") == runner.DEFAULT_TASK
-
-
-def test_compatibility_entry_has_no_forced_pair():
-    content = (ROOT / "run_real_checks.py").read_text(encoding="utf-8-sig")
-    assert "from run_labweaver import main" in content
-    assert "main(interactive=True)" in content
-    assert "_run_pair" not in content
 
 
 @pytest.mark.parametrize("reply", ["@missing.txt"])
