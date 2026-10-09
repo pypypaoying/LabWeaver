@@ -19,9 +19,15 @@ uv run --frozen pytest -q -m docker
 
 ## 本轮实际状态（2026-10-09）
 
-宿主测试已运行，最后结果将在完成后更新。Docker Desktop 4.94.0 和 Microsoft WSL 3.0.1 已在本机安装，硬件虚拟化开启、Virtual Machine Platform 显示 Enabled，但 Windows 的 HypervisorPresent=false，Docker Linux 引擎报告 Virtual Machine Platform not enabled 并返回 500。因此本机暂不能构建镜像或进行真实容器验收；需要完成 Windows 虚拟化启动/重启后复测。
+- 本机宿主回归：322 passed，28 subtests passed；15 项 Docker 测试在这轮宿主运行中明确排除。
+- [CI 验证提交 de27b9d](https://github.com/pypypaoying/LabWeaver/actions/runs/37922724378)：四个宿主环境全部通过；Ubuntu 真实 Docker 15 passed，并完成公开问卷的双 Agent 分析演示。该次镜像 ID 为 `sha256:c091fa4d7bde2f1dc71f292ad46c9eb7079509974023df1c9ab48248b01aa806`。
+- 核心数值已在真实容器中核对：交叉表 A(East=6/West=3)、B(East=5/West=1)；日汇总 5/4/3、峰谷差值2；清洗4→3行、去重1、填空1、保留001等编号。280组、大整数、错误修正、隔离、超时/OOM、取消、无模型重放均包含在 Docker 测试中。
+- 已下载公开合成 CI 图表并查看 PNG 与 SVG 渲染：中文标题/轴、分组和日期次序正常。没有将这些产物提交到库。
+- 真实在线模型＋公开 composite.csv 的纯概览：completed，主模型2次，代码模型0次；没有容器执行，不能据此称在线代码分析通过。
 
-Ubuntu CI 容器验收与公开合成数据在线结果会分别记录，不将当前环境失败记作通过。不自动重启用户电脑。
+本机 Docker Desktop 4.94.0 和 Microsoft WSL 3.0.1 已安装，硬件虚拟化开启、Virtual Machine Platform 显示 Enabled，但 Windows 的 HypervisorPresent=false；Docker Linux 引擎报告 Virtual Machine Platform not enabled 并返回500。本机镜像构建、Windows真实容器和三个核心任务的在线模型验收尚未完成，需要完成 Windows 虚拟化启动/重启后复测。不自动重启用户电脑。
+
+D5 当前在 `codex/d5-validation` 验证分支，本机代码可检查；主分支仍保留此前版本。按“验收通过后发布”的约定，以上本机及在线项目通过前不更新 main。不将环境失败、测试替身或纯概览成功记作代码分析通过。
 
 ## 验收解释
 
