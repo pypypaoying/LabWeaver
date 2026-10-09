@@ -35,7 +35,10 @@ def run_case(file, task, tmp_path):
         path, OfflineIntakeModel(), analysis_model=OfflineAnalysisModel()
     )
     result = session.invoke(task)
-    assert result["status"] == "completed", {"error": result.get("error"), "executions": result.get("code_executions")}
+    assert result["status"] == "completed", {
+        "error": result.get("error"),
+        "executions": result.get("code_executions"),
+    }
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
     assert (
         len(result["analysis_runs"]) == 1
@@ -142,6 +145,7 @@ import pandas as pd, socket, os
 from pathlib import Path
 assert os.geteuid() == 65532
 assert not any('API_KEY' in k for k in os.environ)
+assert not any(os.environ.get(k) for k in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy'))
 assert not Path('/var/run/docker.sock').exists()
 try:
     Path('/input/dataset.json').write_text('changed')

@@ -32,6 +32,16 @@ def test_container_command_contains_only_staged_input_and_resource_policy():
     assert "size=128m" in command[command.index("--tmpfs") + 1]
     assert sum(value == "--mount" for value in command) == 1
     assert not any("socket" in value or "API_KEY" in value for value in command)
+    assert all(
+        name + "=" in command
+        for name in (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "ALL_PROXY",
+            "http_proxy",
+            "https_proxy",
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -107,3 +117,37 @@ def test_remote_docker_context_refused_before_sending_input(monkeypatch):
     with pytest.raises(ExecutionError) as exc:
         DockerExecutor().preflight()
     assert exc.value.code == "remote_docker_forbidden"
+
+
+def test_docker_context_takes_precedence_over_host_environment(monkeypatch):
+    import labweaver.runtime.execution as module
+
+    monkeypatch.setattr(module, "docker_executable", lambda: "docker")
+    monkeypatch.setenv("DOCKER_HOST", "unix:///local.sock")
+    monkeypatch.setenv("DOCKER_CONTEXT", "remote")
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout=b"ssh://remote.example", stderr=b"")
+
+    monkeypatch.setattr(module.subprocess, "run", run)
+    with pytest.raises(ExecutionError) as exc:
+        DockerExecutor().preflight()
+    assert exc.value.code == "remote_docker_forbidden"
+    assert len(calls) == 1 and "remote" in calls[0]
+
+
+def test_verified_endpoint_is_pinned_and_context_environment_removed(monkeypatch):
+    monkeypatch.setenv("DOCKER_CONTEXT", "remote")
+    monkeypatch.setenv("DOCKER_HOST", "tcp://remote.example:2375")
+    executor = DockerExecutor()
+    executor._endpoint = "unix:///verified.sock"
+    assert executor.command("docker", "sha256:" + "a" * 64, "task", "/stage")[:4] == [
+        "docker",
+        "--host",
+        "unix:///verified.sock",
+        "run",
+    ]
+    assert "DOCKER_CONTEXT" not in executor._client_env()
+    assert "DOCKER_HOST" not in executor._client_env()

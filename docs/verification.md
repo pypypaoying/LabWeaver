@@ -19,7 +19,7 @@ uv run --frozen pytest -q -m docker
 
 ## 本轮实际状态（2026-10-09）
 
-- 本机宿主回归：322 passed，28 subtests passed；15 项 Docker 测试在这轮宿主运行中明确排除。
+- 本机宿主回归：324 passed，28 subtests passed；15 项 Docker 测试在这轮宿主运行中明确排除。最后增加了 Docker context 优先级、固定已校验端点的测试，并显式阻止客户端代理配置将凭证注入容器。
 - [CI 验证提交 de27b9d](https://github.com/pypypaoying/LabWeaver/actions/runs/37922724378)：四个宿主环境全部通过；Ubuntu 真实 Docker 15 passed，并完成公开问卷的双 Agent 分析演示。该次镜像 ID 为 `sha256:c091fa4d7bde2f1dc71f292ad46c9eb7079509974023df1c9ab48248b01aa806`。
 - 核心数值已在真实容器中核对：交叉表 A(East=6/West=3)、B(East=5/West=1)；日汇总 5/4/3、峰谷差值2；清洗4→3行、去重1、填空1、保留001等编号。280组、大整数、错误修正、隔离、超时/OOM、取消、无模型重放均包含在 Docker 测试中。
 - 已下载公开合成 CI 图表并查看 PNG 与 SVG 渲染：中文标题/轴、分组和日期次序正常。没有将这些产物提交到库。

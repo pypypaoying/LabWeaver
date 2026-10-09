@@ -50,7 +50,7 @@ flowchart TD
 
 生成脚本是容器中独立子进程。父监督程序捕获其 stdout/stderr，扫描临时区中的普通文件，返回有界 JSON/base64 协议。宿主拒绝路径穿越、符号链接、类型/行数不匹配、非有限 JSON、主动脚本与外链 SVG，并计算自己的 ID/哈希。输出总计 50 MiB、每任务最多两图；模型只收到摘要和分页。临时区通过协议在容器退出前读取，停止后移除容器。
 
-容器使用不可变镜像 ID、非 root、无网络、只读根、cap-drop、no-new-privileges、64 PID、2 CPU/1 GiB、128 MiB tmpfs。只挂载当前任务暂存的快照与脚本，不挂载项目、用户目录、源 CSV 或 Docker socket。只接受本地 Unix/named-pipe Docker endpoint。
+容器使用不可变镜像 ID、非 root、无网络、只读根、cap-drop、no-new-privileges、64 PID、2 CPU/1 GiB、128 MiB tmpfs。只挂载当前任务暂存的快照与脚本，不挂载项目、用户目录、源 CSV 或 Docker socket。按 Docker CLI 优先级检查 context/host，只接受本地 Unix/named-pipe endpoint；执行与清理固定使用已校验端点。显式清空代理变量，防止 Docker 客户端配置自动传入代理凭证。
 
 每任务主/代码模型各最多 12 次，委派两次，每委派执行三次，检索三次、澄清三次。相同调用 ID 相同参数只执行一次；重用 ID 改参数拒绝；恢复不中途重置预算。后续新任务预算重置，上下文保留，范围变化需重新执行。
 

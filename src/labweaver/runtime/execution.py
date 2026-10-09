@@ -82,17 +82,31 @@ class DockerExecutor:
         self._container = None
         self._cancelled = threading.Event()
         self.image_id = None
+        self._endpoint = None
+
+    def _docker_cli(self, docker):
+        return [docker] + (["--host", self._endpoint] if self._endpoint else [])
+
+    def _client_env(self):
+        # Pin the inspected daemon even if the default context changes mid-run.
+        env = os.environ.copy()
+        if self._endpoint:
+            env.pop("DOCKER_CONTEXT", None)
+            env.pop("DOCKER_HOST", None)
+        return env
 
     def preflight(self):
         docker = docker_executable()
         try:
-            endpoint = os.environ.get("DOCKER_HOST")
+            selected_context = os.environ.get("DOCKER_CONTEXT")
+            endpoint = None if selected_context else os.environ.get("DOCKER_HOST")
             if not endpoint:
                 context = subprocess.run(
                     [
                         docker,
                         "context",
                         "inspect",
+                        *([selected_context] if selected_context else []),
                         "--format",
                         "{{.Endpoints.docker.Host}}",
                     ],
@@ -109,10 +123,12 @@ class DockerExecutor:
                     "remote_docker_forbidden",
                     "D5 requires local Docker; remote TCP/SSH contexts are not accepted",
                 )
+            self._endpoint = endpoint
             info = subprocess.run(
-                [docker, "info", "--format", "{{.OSType}}"],
+                self._docker_cli(docker) + ["info", "--format", "{{.OSType}}"],
                 capture_output=True,
                 timeout=15,
+                env=self._client_env(),
             )
             if info.returncode or info.stdout.strip() != b"linux":
                 raise ExecutionError(
@@ -120,9 +136,11 @@ class DockerExecutor:
                     "Start Docker Desktop with Linux containers; the daemon is unavailable or incompatible.",
                 )
             image = subprocess.run(
-                [docker, "image", "inspect", self.config.image, "--format", "{{.Id}}"],
+                self._docker_cli(docker)
+                + ["image", "inspect", self.config.image, "--format", "{{.Id}}"],
                 capture_output=True,
                 timeout=15,
+                env=self._client_env(),
             )
             if image.returncode:
                 raise ExecutionError(
@@ -158,23 +176,26 @@ class DockerExecutor:
         try:
             docker = docker_executable()
             removed = subprocess.run(
-                [docker, "rm", "-f", name],
+                self._docker_cli(docker) + ["rm", "-f", name],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=15,
+                env=self._client_env(),
             )
             if removed.returncode == 0:
                 return True
             probe = subprocess.run(
-                [docker, "inspect", name], capture_output=True, timeout=10
+                self._docker_cli(docker) + ["inspect", name],
+                capture_output=True,
+                timeout=10,
+                env=self._client_env(),
             )
             return b"No such" in probe.stderr
         except (OSError, subprocess.TimeoutExpired, ExecutionError):
             return False
 
     def command(self, docker, image_id, name, input_dir):
-        return [
-            docker,
+        return self._docker_cli(docker) + [
             "run",
             "--name",
             name,
@@ -202,6 +223,24 @@ class DockerExecutor:
             f"type=bind,source={input_dir},target=/input,readonly",
             "--entrypoint",
             "python",
+            # Docker client config can automatically inject credential-bearing
+            # proxy variables. Explicit empty overrides prevent that transfer.
+            *[
+                item
+                for name in (
+                    "HTTP_PROXY",
+                    "HTTPS_PROXY",
+                    "FTP_PROXY",
+                    "ALL_PROXY",
+                    "NO_PROXY",
+                    "http_proxy",
+                    "https_proxy",
+                    "ftp_proxy",
+                    "all_proxy",
+                    "no_proxy",
+                )
+                for item in ("--env", name + "=")
+            ],
             image_id,
             "/opt/labweaver/runner.py",
         ]
@@ -260,6 +299,7 @@ class DockerExecutor:
                     self.command(docker, image_id, name, input_dir),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
+                    env=self._client_env(),
                 )
                 buffers = {"stdout": bytearray(), "stderr": bytearray()}
                 overflow = threading.Event()
@@ -310,9 +350,11 @@ class DockerExecutor:
                     for reader in readers:
                         reader.join(timeout=10)
                     state = subprocess.run(
-                        [docker, "inspect", name, "--format", "{{json .State}}"],
+                        self._docker_cli(docker)
+                        + ["inspect", name, "--format", "{{json .State}}"],
                         capture_output=True,
                         timeout=10,
+                        env=self._client_env(),
                     )
                     details = strict_json(state.stdout) if state.returncode == 0 else {}
                     record["container_state"] = {
