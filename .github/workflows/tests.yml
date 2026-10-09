@@ -1,8 +1,8 @@
-name: Offline verification
+name: Verification
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/d5-*']
   pull_request:
   workflow_dispatch:
 
@@ -34,13 +34,30 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked --python ${{ matrix.python }}
-      - name: Install Chinese chart fonts
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-      - name: Run offline tests
-        run: uv run --frozen pytest -q
+      - name: Run host tests (no generated code on host)
+        run: uv run --frozen pytest -q -m 'not docker'
       - name: Verify config-driven offline intake
-        run: uv run --frozen labweaver intake --offline
-      - name: Verify experimental-data intake overrides
-        run: uv run --frozen labweaver intake --config examples/configs/experiments.toml
+        run: uv run --frozen labweaver intake --offline --task '概览字段与缺失情况'
+  docker:
+    name: Ubuntu / real Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LANGSMITH_TRACING: 'false'
+      LABWEAVER_REQUIRE_DOCKER: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4
+        with:
+          version: '0.11.12'
+          python-version: '3.11'
+      - run: uv sync --locked --python 3.11
+      - name: Build locked analysis sandbox
+        run: docker build -t labweaver-python:0.2.0 sandbox
+      - name: Real container acceptance and isolation
+        run: uv run --frozen pytest -q -m docker
+      - name: Public survey example through both Agents
+        run: uv run --frozen labweaver intake --offline --csv examples/data/survey.csv --task '统计部门满意度平均值并绘制柱状图'
 

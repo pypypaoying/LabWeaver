@@ -49,7 +49,9 @@ def _process_model_settings(monkeypatch):
     monkeypatch.setenv("LLM_MODEL_ID", "process-test-model")
 
 
-def test_none_env_file_ignores_unrelated_cwd_dotenv_and_accepts_process_settings(tmp_path, monkeypatch):
+def test_none_env_file_ignores_unrelated_cwd_dotenv_and_accepts_process_settings(
+    tmp_path, monkeypatch
+):
     config = _intake_config(tmp_path)
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text(
@@ -65,7 +67,7 @@ def test_none_env_file_ignores_unrelated_cwd_dotenv_and_accepts_process_settings
     monkeypatch.setattr(model_configuration, "dotenv_values", forbidden_dotenv_read)
     received_settings = []
 
-    def offline_model_for_live_settings(settings):
+    def offline_model_for_live_settings(settings, **kwargs):
         received_settings.append(settings)
         assert settings.api_key == "process-test-placeholder"
         assert settings.base_url == "https://process.example.invalid/v1"
@@ -80,12 +82,14 @@ def test_none_env_file_ignores_unrelated_cwd_dotenv_and_accepts_process_settings
 
     _process_model_settings(monkeypatch)
     report, saved = intake_runtime.execute_intake(config)
-    assert len(received_settings) == 1
+    assert len(received_settings) == 2
     assert report["status"] == "completed"
-    assert report["mode"] == "live"  # Live configuration path; only model creation is replaced.
+    assert (
+        report["mode"] == "live"
+    )  # Live configuration path; only model creation is replaced.
     assert report["model_calls"] == 2
     assert len(report["execution_ledger"]) == 1
-    assert report["profile"]["row_count"] == 2
+    assert report["profile_result"]["row_count"] == 2
     assert config.output_dir in saved.parents
     assert report["brief_path"] == str(saved.with_suffix(".md"))
     assert saved.with_suffix(".md").exists()
@@ -95,11 +99,13 @@ def test_none_env_file_ignores_unrelated_cwd_dotenv_and_accepts_process_settings
     assert "process-test-placeholder" not in recorded
 
 
-def test_unexpected_model_initialization_error_keeps_only_safe_exception_type(tmp_path, monkeypatch):
+def test_unexpected_model_initialization_error_keeps_only_safe_exception_type(
+    tmp_path, monkeypatch
+):
     config = _intake_config(tmp_path)
     _process_model_settings(monkeypatch)
 
-    def failed_model_creation(settings):
+    def failed_model_creation(settings, **kwargs):
         raise ValueError(
             "API key=process-test-placeholder; credential body; https://private.example.invalid"
         )
@@ -118,7 +124,9 @@ def test_unexpected_model_initialization_error_keeps_only_safe_exception_type(tm
     assert not config.output_dir.exists()
 
 
-def test_empty_task_file_is_rejected_before_loading_or_constructing_model(tmp_path, monkeypatch):
+def test_empty_task_file_is_rejected_before_loading_or_constructing_model(
+    tmp_path, monkeypatch
+):
     task_file = tmp_path / "task.txt"
     task_file.write_text(" \n\t ", encoding="utf-8-sig")
     config = replace(_intake_config(tmp_path), task=None, task_file=task_file)
@@ -126,7 +134,9 @@ def test_empty_task_file_is_rejected_before_loading_or_constructing_model(tmp_pa
 
     def forbidden_model_work(*args, **kwargs):
         invoked.append(True)
-        raise AssertionError("An empty task must fail before any model configuration or construction.")
+        raise AssertionError(
+            "An empty task must fail before any model configuration or construction."
+        )
 
     monkeypatch.setattr(intake_runtime, "load_config", forbidden_model_work)
     monkeypatch.setattr(intake_runtime, "create_model", forbidden_model_work)
@@ -136,26 +146,34 @@ def test_empty_task_file_is_rejected_before_loading_or_constructing_model(tmp_pa
     assert not config.output_dir.exists()
 
 
-def test_materials_intake_saves_matching_json_and_source_linked_brief(tmp_path, monkeypatch):
+def test_materials_intake_saves_matching_json_and_source_linked_brief(
+    tmp_path, monkeypatch
+):
     material = tmp_path / "requirements.txt"
     material.write_text(
         "任务要求：按照 condition 分组比较 value 的均值。先提出方案，等待确认后再执行。\n",
         encoding="utf-8",
     )
     original = material.read_bytes()
-    config = replace(_intake_config(tmp_path), mode="offline", material_paths=(material,),
-                     task="根据资料说明 condition 分组与 value 指标，提出比较方案。")
+    config = replace(
+        _intake_config(tmp_path),
+        mode="offline",
+        material_paths=(material,),
+        task="根据资料说明 condition 分组与 value 指标，提出比较方案。",
+    )
 
     def deny_credentials(*args, **kwargs):
-        raise AssertionError("Offline materials intake must not read model credentials.")
+        raise AssertionError(
+            "Offline materials intake must not read model credentials."
+        )
 
     monkeypatch.setattr(intake_runtime, "load_config", deny_credentials)
     report, saved = intake_runtime.execute_intake(config)
     recorded = json.loads(saved.read_text(encoding="utf-8"))
     brief = saved.with_suffix(".md")
     assert report["status"] == "completed"
-    assert report["materials_completed"] is True
-    assert report["profile"]["row_count"] == 2
+    assert report["retrieval_status"] == "used"
+    assert report["profile_result"]["row_count"] == 2
     assert report["model_calls"] == 3
     assert len(report["retrieval_queries"]) == 1
     assert report["citations"]
@@ -166,14 +184,17 @@ def test_materials_intake_saves_matching_json_and_source_linked_brief(tmp_path, 
     assert material.read_bytes() == original
 
 
-def test_failed_materials_intake_saves_error_record_without_brief(tmp_path):
-    config = replace(_intake_config(tmp_path), mode="offline",
-                     material_paths=(tmp_path / "missing.txt",),
-                     task="根据资料说明 value 指标的定义。")
+def test_failed_materials_intake_saves_error_record_and_brief(tmp_path):
+    config = replace(
+        _intake_config(tmp_path),
+        mode="offline",
+        material_paths=(tmp_path / "missing.txt",),
+        task="根据资料说明 value 指标的定义。",
+    )
     report, saved = intake_runtime.execute_intake(config)
     assert report["status"] == "error"
-    assert report.get("materials_completed") is False
+    assert report["status"] == "error"
     assert report["error"]["code"]
-    assert "brief_path" not in report
-    assert "brief_path" not in json.loads(saved.read_text(encoding="utf-8"))
-    assert not saved.with_suffix(".md").exists()
+    assert report["brief_path"]
+    assert json.loads(saved.read_text(encoding="utf-8"))["brief_path"]
+    assert saved.with_suffix(".md").exists()

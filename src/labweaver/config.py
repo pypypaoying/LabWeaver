@@ -22,7 +22,11 @@ class ModelConfig:
 def load_config(
     env_file: str | Path | None = None, *, use_default_env: bool = True
 ) -> ModelConfig:
-    path = Path(env_file) if env_file is not None else (Path(".env") if use_default_env else None)
+    path = (
+        Path(env_file)
+        if env_file is not None
+        else (Path(".env") if use_default_env else None)
+    )
     if env_file is not None and not path.is_file():
         raise ConfigurationError("The selected configuration file does not exist.")
     values = dotenv_values(path) if path is not None and path.is_file() else {}
@@ -39,7 +43,9 @@ def load_config(
         if not 0 < timeout <= 120:
             raise ValueError
     except ValueError:
-        raise ConfigurationError("LLM_TIMEOUT must be a finite number between 0 and 120.") from None
+        raise ConfigurationError(
+            "LLM_TIMEOUT must be a finite number between 0 and 120."
+        ) from None
     return ModelConfig(
         model_id=setting("LLM_MODEL_ID"),
         base_url=setting("LLM_BASE_URL"),
@@ -48,7 +54,7 @@ def load_config(
     )
 
 
-def create_model(config: ModelConfig):
+def create_model(config: ModelConfig, *, max_tokens=1200):
     from langchain_openai import ChatOpenAI
 
     return ChatOpenAI(
@@ -58,6 +64,5 @@ def create_model(config: ModelConfig):
         temperature=0,
         timeout=config.timeout,
         max_retries=0,
-        max_tokens=1200,
+        max_tokens=max_tokens,
     )
-

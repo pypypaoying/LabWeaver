@@ -23,13 +23,15 @@ def resolve_task(config: IntakeConfig) -> str:
     return task.strip()
 
 
-def _selected_model(config: IntakeConfig):
+def _selected_model(config: IntakeConfig, *, max_tokens=1200):
     if config.mode == "offline":
         from labweaver.offline import OfflineIntakeModel
 
         return OfflineIntakeModel()
     try:
-        return create_model(load_config(config.env_file, use_default_env=False))
+        return create_model(
+            load_config(config.env_file, use_default_env=False), max_tokens=max_tokens
+        )
     except ConfigurationError:
         raise
     except Exception as exc:
@@ -40,30 +42,41 @@ def _selected_model(config: IntakeConfig):
 
 def create_runtime_session(config: IntakeConfig):
     """Bind a model and source once for the current interactive process."""
-    visualization_model = None
+    analysis_model = None
     if config.mode == "offline":
-        from labweaver.offline import OfflineVisualizationModel
+        from labweaver.offline import OfflineAnalysisModel
 
-        visualization_model = OfflineVisualizationModel()
+        analysis_model = OfflineAnalysisModel()
+    else:
+        analysis_model = _selected_model(config, max_tokens=config.analysis_max_tokens)
+    from labweaver.runtime.execution import ExecutionConfig
+
     return create_session(
-        config.csv_path, _selected_model(config),
-        material_paths=config.material_paths, encoding=config.encoding,
-        delimiter=config.delimiter, sample_rows=config.sample_rows,
-        visualization_model=visualization_model, font_path=config.font_path,
+        config.csv_path,
+        _selected_model(config),
+        material_paths=config.material_paths,
+        encoding=config.encoding,
+        delimiter=config.delimiter,
+        sample_rows=config.sample_rows,
+        analysis_model=analysis_model,
+        execution_config=ExecutionConfig(
+            image=config.execution_image, timeout=config.execution_timeout
+        ),
     )
 
 
-def save_session_report(report: dict, config: IntakeConfig, *, session=None) -> tuple[dict, Path]:
+def save_session_report(
+    report: dict, config: IntakeConfig, *, session=None
+) -> tuple[dict, Path]:
     """Save a pending/error event or a completed brief and result tables."""
     report["mode"] = config.mode
-    saved = save_run(report, config.output_dir, with_brief=report.get("status") == "completed",
-                     chart_assets=session.chart_assets if session is not None else None)
+    saved = save_run(
+        report,
+        config.output_dir,
+        artifact_assets=session.artifact_assets if session is not None else None,
+    )
     document = json.loads(saved.read_text(encoding="utf-8"))
-    for key in ("run_id", "recorded_at", "brief_path", "result_csv_paths", "chart_paths",
-                "charts", "plot_data_csv_paths"):
-        if key in document:
-            report[key] = document[key]
-    return report, saved
+    return document, saved
 
 
 def execute_intake(config: IntakeConfig) -> tuple[dict, Path]:

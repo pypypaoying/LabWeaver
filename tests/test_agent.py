@@ -1,48 +1,34 @@
-"""Task-level acceptance through real Deep Agents and LangGraph interrupts."""
+"""Real LangGraph/Deep Agents flow; injected transport fixtures never execute Python on host."""
 
 import copy
 import hashlib
 import json
 import socket
-from types import SimpleNamespace
-from pathlib import Path
-import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import Field, PrivateAttr
-from labweaver.agent import (
-    create_session,
-    run_intake,
-    _IntakeHarness,
-    _IntakeRejected,
-    _validate_evidence,
-)
+import pytest
+from labweaver.agent import create_session, run_intake
 from labweaver.offline import OfflineIntakeModel
+from labweaver.runtime.artifacts import validate_payload
 
 
 class ScriptedModel(OfflineIntakeModel):
     responses: list[AIMessage] = Field(default_factory=list)
     _cursor: int = PrivateAttr(default=0)
 
-    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-        position = min(self._cursor, len(self.responses) - 1)
+    def _generate(self, messages, **kwargs):
+        if self._cursor >= len(self.responses):
+            raise AssertionError("Unexpected extra model call")
+        message = copy.deepcopy(self.responses[self._cursor])
         self._cursor += 1
-        return ChatResult(
-            generations=[ChatGeneration(message=self.responses[position])]
-        )
+        return ChatResult(generations=[ChatGeneration(message=message)])
 
 
 def call(name="profile_csv", cid="p1", args=None):
     return AIMessage(
         content="",
-        tool_calls=[
-            {
-                "name": name,
-                "args": {} if args is None else args,
-                "id": cid,
-                "type": "tool_call",
-            }
-        ],
+        tool_calls=[{"name": name, "args": args or {}, "id": cid, "type": "tool_call"}],
     )
 
 
@@ -59,6 +45,20 @@ def answer(kind="summary", text="已按实际数据完成概览。"):
     )
 
 
+def paired(report):
+    calls = [v for v in report["trace"] if v["kind"] == "tool_call"]
+    results = [v for v in report["trace"] if v["kind"] == "tool_result"]
+    assert len(calls) == len(results) == len(report["execution_ledger"])
+    for call in calls:
+        result = next(v for v in results if v["tool_call_id"] == call["id"])
+        ledger = next(
+            v for v in report["execution_ledger"] if v["tool_call_id"] == call["id"]
+        )
+        assert call["name"] == result["name"] == ledger["name"]
+        assert call["args"] == ledger["arguments"]
+        assert json.loads(result["content"]) == ledger["result"]
+
+
 @pytest.fixture(autouse=True)
 def no_tracing(monkeypatch):
     monkeypatch.setenv("LANGSMITH_TRACING", "false")
@@ -67,331 +67,247 @@ def no_tracing(monkeypatch):
 
 @pytest.fixture
 def csv_path(tmp_path):
-    p = tmp_path / "study.csv"
-    p.write_text("group,score\nA,2\nB,4\nA,\n", encoding="utf8")
-    return p
+    path = tmp_path / "study.csv"
+    path.write_text("group,score\nA,2\nB,4\nA,\n", encoding="utf-8")
+    return path
 
 
-def paired(report):
-    calls = [v for v in report["trace"] if v["kind"] == "tool_call"]
-    results = [v for v in report["trace"] if v["kind"] == "tool_result"]
-    assert len(calls) == len(results) == len(report["execution_ledger"])
-    for c in calls:
-        r = next(v for v in results if v["tool_call_id"] == c["id"])
-        e = next(v for v in report["execution_ledger"] if v["tool_call_id"] == c["id"])
-        assert c["name"] == r["name"] == e["name"]
-        assert c["args"] == e["arguments"]
-        assert json.loads(r["content"]) == e["result"]
+def test_summary_no_network_or_container(csv_path, monkeypatch):
+    def deny(*args, **kwargs):
+        raise AssertionError("Offline connected")
 
-
-def test_offline_summary_real_tools_no_network(csv_path, monkeypatch):
-    connections = []
-
-    def deny(*a, **k):
-        connections.append(True)
-        raise AssertionError("offline connected")
-
-    monkeypatch.setattr(socket, "create_connection", deny)
     monkeypatch.setattr(socket.socket, "connect", deny)
     before = hashlib.sha256(csv_path.read_bytes()).hexdigest()
-    model = OfflineIntakeModel()
-    r = run_intake("概览字段与缺失情况", csv_path, model)
-    assert r["status"] == "completed"
-    assert r["profile"]["row_count"] == 3 and r["profile"]["column_count"] == 2
-    assert r["model_calls"] == 2 and r["tool_counts"]["profile_csv"] == 1
-    assert set(model.bound_tool_sets[0]) == {"profile_csv"}
-    assert set(model.bound_tool_sets[-1]) == {"analyze_csv", "ask_user", "prepare_distribution"}
-    assert "3 行、2 列" in r["final_answer"]
-    assert r["retrieval_status"] == "unavailable" and not connections
+    session = create_session(csv_path, OfflineIntakeModel())
+    monkeypatch.setattr(session.executor, "execute", deny)
+    result = session.invoke("概览字段与缺失情况")
+    assert result["status"] == "completed", result.get("error")
+    assert result["profile_result"]["row_count"] == 3
+    assert result["tool_exposure"][0] == ["profile_csv"]
+    assert result["artifacts"] == [] and result["analysis_status"] == "not_needed"
     assert hashlib.sha256(csv_path.read_bytes()).hexdigest() == before
-    paired(r)
-    json.dumps(r, allow_nan=False)
-
-
-def test_medal_clarify_execute_followup_and_budget():
-    p = Path("tests/fixtures/medals.csv")
-    digest = hashlib.sha256(p.read_bytes()).hexdigest()
-    s = create_session(p, OfflineIntakeModel())
-    graph = s.graph
-    r = s.invoke("统计出获得最多奖牌的前5个国家")
-    assert r["status"] == "awaiting_input" and r["question"]
-    assert r["tool_counts"] == {
-        "profile_csv": 1,
-        "search_materials": 0,
-        "analyze_csv": 0,
-        "ask_user": 1,
-        "prepare_distribution": 0,
-        "delegate_visualization": 0,
-        "read_analysis_rows": 0,
-    }
-    assert r["model_calls"] == 2
-    task_id = r["task_id"]
-    r = s.resume("全部年份、按 Total 累计、保留原始 NOC")
-    assert r["status"] == "completed" and r["task_id"] == task_id
-    assert r["tool_counts"]["ask_user"] == 1 and r["tool_counts"]["profile_csv"] == 1
-    assert r["analysis_results"][0]["rows"] == [
-        {"column_2": "Alpha", "total_medals": 22},
-        {"column_2": "Beta", "total_medals": 17},
-        {"column_2": "Gamma", "total_medals": 11},
-        {"column_2": "Delta", "total_medals": 7},
-        {"column_2": "Epsilon", "total_medals": 5},
-    ]
-    assert "Alpha | 22" in r["final_answer"]
-    assert r["replies"] == ["全部年份、按 Total 累计、保留原始 NOC"]
-    paired(r)
-    r = s.invoke("改为2024年")
-    assert s.graph is graph
-    assert r["status"] == "completed" and r["task_id"] != task_id
-    assert r["tool_counts"]["profile_csv"] == r["tool_counts"]["ask_user"] == 0
-    assert r["model_calls"] == 2 and r["tool_counts"]["analyze_csv"] == 1
-    assert r["analysis_results"][0]["rows"] == [
-        {"column_2": "Alpha", "total_medals": 12},
-        {"column_2": "Beta", "total_medals": 9},
-        {"column_2": "Gamma", "total_medals": 6},
-        {"column_2": "Delta", "total_medals": 4},
-        {"column_2": "Epsilon", "total_medals": 3},
-    ]
-    paired(r)
-    assert hashlib.sha256(p.read_bytes()).hexdigest() == digest
-
-
-def test_no_fake_success_without_profile(csv_path):
-    r = run_intake("概览", csv_path, ScriptedModel(responses=[answer()]))
-    assert r["status"] == "error" and r["error"]["code"] == "missing_tool_call"
+    paired(result)
 
 
 @pytest.mark.parametrize(
-    "name,args",
+    "responses,code",
     [
-        ("write_file", {"file_path": "/bad", "content": "bad"}),
-        ("task", {"description": "delegate", "subagent_type": "general-purpose"}),
-        ("unknown", {}),
+        ([answer()], "profile_failed"),
+        ([call("execute", "bad", {"command": "whoami"})], "tool_not_allowed"),
+        ([call(), AIMessage(content="not JSON")], "invalid_final_answer"),
+        ([call(), answer("calculation")], "missing_task_plan"),
     ],
 )
-def test_forbidden_dispatch(csv_path, name, args):
-    r = run_intake(
-        "概览", csv_path, ScriptedModel(responses=[call(name, args=args), answer()])
-    )
-    assert r["status"] == "error" and r["error"]["code"] == "tool_not_allowed"
-    assert r["execution_ledger"] == []
+def test_refuses_false_completion(csv_path, responses, code):
+    report = run_intake("概览", csv_path, ScriptedModel(responses=responses))
+    assert report["status"] == "error"
+    assert report["error"]["code"] == code
 
 
-def test_path_injection(csv_path):
-    r = run_intake(
-        "概览",
+def plan():
+    return [{"id": "table", "kind": "table", "description": "完整统计表"}]
+
+
+class ReceiptModel(OfflineIntakeModel):
+    """Execute real tool dispatch, then return only IDs from actual ToolMessage."""
+
+    code: str = "fixture code"
+    fail_first: bool = False
+    invented: bool = False
+
+    def _generate(self, messages, **kwargs):
+        results = [
+            json.loads(m.content)
+            for m in messages
+            if isinstance(m, ToolMessage) and m.name == "execute_python"
+        ]
+        if not results or self.fail_first and len(results) == 1:
+            return self._call(
+                "execute_python", {"code": self.code + (" fixed" if results else "")}
+            )
+        ids = [a for r in results for a in r.get("artifact_ids", [])]
+        return ChatResult(
+            generations=[
+                ChatGeneration(
+                    message=AIMessage(
+                        content=json.dumps(
+                            {
+                                "status": "completed",
+                                "artifact_ids": ["invented"] if self.invented else ids,
+                                "summary": "真实工具成果",
+                            }
+                        )
+                    )
+                )
+            ]
+        )
+
+
+def inject_executor(session, monkeypatch, *, failures=0, empty=False):
+    import base64
+
+    calls = []
+
+    def execute(code, snapshot, deliverables, **kwargs):
+        calls.append(code)
+        record = {
+            "id": f"execution-{len(calls)}",
+            "code": code,
+            "code_sha256": hashlib.sha256(code.encode()).hexdigest(),
+            "source": snapshot.source,
+            "status": "completed",
+            "image_id": "sha256:" + "a" * 64,
+            "image": "fixture-image",
+            "exit_code": 0,
+            "artifact_ids": [],
+            "elapsed_seconds": 0.1,
+        }
+        if len(calls) <= failures:
+            return {
+                **record,
+                "status": "error",
+                "exit_code": 1,
+                "stderr": {"text": "NameError: fixture", "truncated": False},
+                "error": {"code": "python_failed"},
+            }, {}
+        payload = (
+            []
+            if empty
+            else [
+                {
+                    "metadata": {
+                        "kind": "table",
+                        "deliverable_id": "table",
+                        "label": "结果",
+                        "row_count": 2,
+                        "columns": ["group", "value"],
+                    },
+                    "files": {
+                        "table.csv": base64.b64encode(
+                            b"group,value\nA,2\nB,4\n"
+                        ).decode()
+                    },
+                }
+            ]
+        )
+        assets = validate_payload(
+            payload,
+            deliverables=deliverables,
+            source=snapshot.source,
+            execution_id=record["id"],
+            image_id=record["image_id"],
+        )
+        record["artifact_ids"] = list(assets)
+        return record, assets
+
+    monkeypatch.setattr(session.executor, "execute", execute)
+    return calls
+
+
+def coordinator_responses():
+    return [
+        call(),
+        call("set_task_plan", "plan", {"deliverables": plan()}),
+        call(
+            "delegate_analysis",
+            "delegate",
+            {"instruction": "分组统计", "deliverable_ids": ["table"]},
+        ),
+        answer("calculation"),
+    ]
+
+
+def test_two_agents_repair_real_dispatch_and_export(csv_path, monkeypatch, tmp_path):
+    session = create_session(
         csv_path,
-        ScriptedModel(responses=[call(args={"path": "other.csv"}), answer()]),
+        ScriptedModel(responses=coordinator_responses()),
+        analysis_model=ReceiptModel(fail_first=True),
     )
-    assert r["status"] == "error" and r["error"]["code"] == "invalid_tool_arguments"
-    assert r["execution_ledger"] == []
-
-
-def test_readonly_calculation_must_execute(csv_path):
-    r = run_intake(
-        "统计各组得分均值", csv_path, ScriptedModel(responses=[call(), answer()])
+    calls = inject_executor(session, monkeypatch, failures=1)
+    events = []
+    result = session.invoke("分组统计", on_event=events.append)
+    assert result["status"] == "completed", result.get("error")
+    assert len(calls) == 2 and calls[1].endswith("fixed")
+    assert [e["status"] for e in result["code_executions"]] == ["error", "completed"]
+    assert result["fulfilled_deliverable_ids"] == ["table"]
+    assert result["analysis_model_calls"] == 3
+    assert any(e["type"] == "plan" for e in events)
+    assert [e["attempt"] for e in events if e["type"] == "execution_start"] == [1, 2]
+    assert all(
+        set(t) == {"execute_python", "read_artifact"}
+        for t in result["analysis_runs"][0]["tool_exposure"]
     )
-    assert r["status"] == "error" and r["error"]["code"] == "missing_analysis_result"
-    assert r["analysis_results"] == []
+    paired(result)
+    saved = session.save(tmp_path / "runs")
+    assert len(saved["result_csv_paths"]) == 1
+    assert Path(saved["result_csv_paths"][0]).read_text(
+        encoding="utf-8-sig"
+    ).splitlines() == ["group,value", "A,2", "B,4"]
 
 
-def test_model_declared_calculation_needs_execution(csv_path):
-    r = run_intake(
-        "查看 score", csv_path, ScriptedModel(responses=[call(), answer("calculation")])
+@pytest.mark.parametrize("empty,invented", [(True, False), (False, True)])
+def test_child_cannot_claim_missing_or_fabricated_artifact(
+    csv_path, monkeypatch, empty, invented
+):
+    session = create_session(
+        csv_path,
+        ScriptedModel(responses=coordinator_responses()),
+        analysis_model=ReceiptModel(invented=invented),
     )
-    assert r["error"]["code"] == "missing_analysis_result"
+    inject_executor(session, monkeypatch, empty=empty)
+    result = session.invoke("分组统计")
+    assert result["status"] == "error" and result["missing_deliverables"] == ["table"]
+    if invented:
+        assert result[
+            "artifacts"
+        ]  # Preserve valid partial files without marking complete.
 
 
-def test_failed_analysis_never_completed_as_summary(csv_path):
-    r = run_intake(
-        "查看 score",
+def test_clarification_followup_preserves_budget_and_new_scope(csv_path, monkeypatch):
+    responses = [
+        call(),
+        call("ask_user", "ask", {"question": "哪些范围？"}),
+        *coordinator_responses()[1:],
+        call("set_task_plan", "plan2", {"deliverables": plan()}),
+        call(
+            "delegate_analysis",
+            "delegate2",
+            {"instruction": "新范围", "deliverable_ids": ["table"]},
+        ),
+        answer("calculation"),
+    ]
+    session = create_session(
+        csv_path, ScriptedModel(responses=responses), analysis_model=ReceiptModel()
+    )
+    calls = inject_executor(session, monkeypatch)
+    pending = session.invoke("统计")
+    assert pending["status"] == "awaiting_input"
+    finished = session.resume("全部年份")
+    assert finished["status"] == "completed", finished.get("error")
+    assert finished["tool_counts"]["ask_user"] == 1 and finished["replies"] == [
+        "全部年份"
+    ]
+    assert finished["model_calls"] == 5 and len(calls) == 1
+    next_task = session.invoke("新范围统计")
+    assert next_task["status"] == "completed"
+    assert next_task["task_id"] != finished["task_id"]
+    assert next_task["model_calls"] == 3 and len(calls) == 2
+    assert next_task["tool_counts"]["profile_csv"] == 0
+
+
+def test_cancel_and_pending_invalid_transitions(csv_path):
+    session = create_session(
         csv_path,
         ScriptedModel(
-            responses=[call(), call("analyze_csv", "a1", {"spec": {}}), answer()]
+            responses=[call(), call("ask_user", "ask", {"question": "范围？"})]
         ),
     )
-    assert r["status"] == "error" and r["error"]["code"] == "missing_analysis_result"
-    assert r["execution_ledger"][-1]["result"]["status"] == "error"
-
-
-def test_analyze_before_profile_rejected(csv_path):
-    r = run_intake(
-        "概览",
-        csv_path,
-        ScriptedModel(responses=[call("analyze_csv", args={"spec": {}}), answer()]),
-    )
-    assert r["error"]["code"] == "tool_before_profile"
-    assert r["execution_ledger"] == []
-
-
-def test_duplicate_profile_and_parallel_budgets(csv_path):
-    for responses in (
-        [call(), call(cid="p2"), answer()],
-        [
-            AIMessage(
-                content="", tool_calls=call().tool_calls + call(cid="p2").tool_calls
-            ),
-            answer(),
-        ],
-    ):
-        r = run_intake("概览", csv_path, ScriptedModel(responses=responses))
-        assert r["error"]["code"] == "tool_budget_exhausted"
-        assert len(r["execution_ledger"]) == 1 and r["profile_completed"]
-
-
-def test_id_and_content_tampering_detected(csv_path):
-    r = run_intake("概览", csv_path, OfflineIntakeModel())
-    for mutation in ("id", "content", "args"):
-        trace = copy.deepcopy(r["trace"])
-        if mutation == "id":
-            trace[1]["tool_call_id"] = "fake"
-        elif mutation == "content":
-            trace[1]["content"] = "{}"
-        else:
-            trace[0]["args"] = {"path": "fake.csv"}
-        assert (
-            _validate_evidence(trace, r["execution_ledger"])[1]
-            == "unmatched_tool_evidence"
-        )
-    assert _validate_evidence(r["trace"], [])[1] == "missing_execution_evidence"
-
-
-def test_model_budget_12():
-    h = _IntakeHarness()
-
-    class Request:
-        tools = [SimpleNamespace(name="profile_csv")]
-
-        def override(self, **values):
-            return self
-
-    count = []
-
-    def handler(r):
-        count.append(1)
-        return SimpleNamespace(result=[])
-
-    for _ in range(12):
-        h.wrap_model_call(Request(), handler)
-    with pytest.raises(_IntakeRejected, match="model_budget_exhausted"):
-        h.wrap_model_call(Request(), handler)
-    assert len(count) == h.model_calls == 12
-
-
-def test_replay_dispatch_deduplication():
-    h = _IntakeHarness()
-    h.profile_ready = True
-    h._advertised = {"analyze_csv", "ask_user"}
-    request = SimpleNamespace(
-        tool_call={"name": "analyze_csv", "args": {"spec": {}}, "id": "a1"}
-    )
-    runs = []
-
-    def handler(req):
-        runs.append(1)
-        out = {"status": "completed", "rows": []}
-        h.record_execution(out, "analyze_csv")
-        return __import__(
-            "langchain_core.messages", fromlist=["ToolMessage"]
-        ).ToolMessage(content=json.dumps(out), tool_call_id="a1", name="analyze_csv")
-
-    h.wrap_tool_call(request, handler)
-    h.wrap_tool_call(request, handler)
-    assert len(runs) == h.tool_counts["analyze_csv"] == len(h.execution_ledger) == 1
-    request.tool_call["args"] = {"spec": {"top_k": 2}}
-    assert h.wrap_tool_call(request, handler).status == "error"
-    assert h.failure == "reused_tool_call_id"
-
-
-def test_budget_resume_not_reset(csv_path):
-    responses = (
-        [call()]
-        + [call("ask_user", f"q{i}", {"question": f"关键口径{i}?"}) for i in range(4)]
-        + [answer()]
-    )
-    s = create_session(csv_path, ScriptedModel(responses=responses))
-    r = s.invoke("查看数据")
-    for i in range(3):
-        assert r["status"] == "awaiting_input"
-        assert r["tool_counts"]["ask_user"] == i + 1
-        r = s.resume("回答")
-    assert (
-        r["status"] == "error"
-        and r["error"]["code"] == "clarification_budget_exhausted"
-    )
-    assert len([e for e in r["execution_ledger"] if e["name"] == "ask_user"]) == 3
-
-
-def test_cancel_and_invalid_transitions():
-    s = create_session("tests/fixtures/medals.csv", OfflineIntakeModel())
+    assert session.invoke("统计")["status"] == "awaiting_input"
     with pytest.raises(ValueError):
-        s.resume("x")
-    s.invoke("前5个国家")
+        session.invoke("另一个任务")
+    assert session.cancel()["status"] == "cancelled"
     with pytest.raises(ValueError):
-        s.invoke("另一个任务")
-    with pytest.raises(ValueError):
-        s.resume("  ")
-    assert s.cancel()["status"] == "cancelled"
-    with pytest.raises(ValueError):
-        s.resume("回答")
+        session.resume("全部")
 
 
-def test_file_error_is_evidenced(tmp_path):
-    r = run_intake("概览", tmp_path / "missing.csv", OfflineIntakeModel())
-    assert r["status"] == "error" and r["error"]["code"] == "profile_failed"
-    assert len(r["execution_ledger"]) == 1 and not r["profile_completed"]
-
-
-def test_oversized_profile_bound_and_retry(tmp_path):
-    p = tmp_path / "long.csv"
-    p.write_text("a,b\n" + "测" * 20000 + "," + "测" * 20000 + "\n", encoding="utf8")
-    r = run_intake("概览", p, OfflineIntakeModel())
-    assert r["error"]["code"] == "profile_output_too_large"
-    assert len(json.dumps(r, ensure_ascii=False).encode()) < 6000
-    assert (
-        run_intake("概览", p, OfflineIntakeModel(), sample_rows=0)["status"]
-        == "completed"
-    )
-
-
-def test_upstream_errors_sanitized(csv_path):
-    class Bad(OfflineIntakeModel):
-        def _generate(self, *a, **k):
-            raise RuntimeError("api_key=private-secret")
-
-    r = run_intake("概览", csv_path, Bad())
-    assert r["error"]["code"] == "agent_failed" and r["diagnostics"] == {
-        "exception_type": "RuntimeError"
-    }
-    assert "private-secret" not in json.dumps(r)
-
-
-def test_profile_survives_later_model_error(csv_path):
-    class Bad(OfflineIntakeModel):
-        def _generate(self, messages, *a, **k):
-            if any(m.type == "tool" for m in messages):
-                raise RuntimeError("bad")
-            return super()._generate(messages, *a, **k)
-
-    r = run_intake("概览", csv_path, Bad())
-    assert (
-        r["status"] == "error"
-        and r["profile_completed"]
-        and len(r["execution_ledger"]) == 1
-    )
-
-
-def test_empty_task_no_model_calls(csv_path):
-    r = run_intake(" ", csv_path, OfflineIntakeModel())
-    assert (
-        r["error"]["code"] == "invalid_task"
-        and r["model_calls"] == r["tool_attempts"] == 0
-    )
-
-
-def test_malformed_final_json(csv_path):
-    r = run_intake(
-        "概览",
-        csv_path,
-        ScriptedModel(responses=[call(), AIMessage(content="finished")]),
-    )
-    assert r["error"]["code"] == "invalid_final_answer"
+from pathlib import Path

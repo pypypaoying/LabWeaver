@@ -55,12 +55,24 @@ def test_invalid_timeout_does_not_expose_key(tmp_path, timeout):
 
 
 def test_run_artifacts_are_strict_json_and_do_not_replace(tmp_path):
-    first = save_run({"status": "completed", "text": "中文"}, tmp_path)
-    second = save_run({"status": "completed"}, tmp_path)
+    first = save_run(
+        {
+            "report_version": 2,
+            "session_id": "s",
+            "task_id": "t",
+            "status": "completed",
+            "text": "中文",
+        },
+        tmp_path,
+    )
+    second = save_run(
+        {"report_version": 2, "session_id": "s", "task_id": "t", "status": "completed"},
+        tmp_path,
+    )
     assert first != second
     document = json.loads(first.read_text(encoding="utf-8"))
     assert document["text"] == "中文"
-    assert document["run_id"]
+    assert document["record_path"]
     with pytest.raises(ValueError):
         save_run({"value": float("nan")}, tmp_path)
 
@@ -70,20 +82,46 @@ def test_intake_cli_runs_offline_and_keeps_source(tmp_path, capsys):
     csv.write_text("group,value\nA,2\nB,4\n", encoding="utf-8")
     original = hashlib.sha256(csv.read_bytes()).hexdigest()
     runs = tmp_path / "runs"
-    assert main(["intake", "--csv", str(csv), "--task", "检查数据并确认分析方向", "--offline",
-                 "--output-dir", str(runs)]) == 0
+    assert (
+        main(
+            [
+                "intake",
+                "--csv",
+                str(csv),
+                "--task",
+                "检查数据并确认分析方向",
+                "--offline",
+                "--output-dir",
+                str(runs),
+            ]
+        )
+        == 0
+    )
     output = capsys.readouterr()
     report = json.loads(output.out)
     assert report["status"] == "completed"
-    assert report["profile"]["row_count"] == 2
-    assert report["profile"]["column_count"] == 2
+    assert report["profile_result"]["row_count"] == 2
+    assert report["profile_result"]["column_count"] == 2
     assert hashlib.sha256(csv.read_bytes()).hexdigest() == original
     assert len(list(runs.rglob("*.json"))) == 1
 
 
 def test_intake_cli_reports_csv_read_failure(tmp_path, capsys):
-    assert main(["intake", "--csv", str(tmp_path / "missing.csv"), "--task", "检查数据", "--offline",
-                 "--output-dir", str(tmp_path / "runs")]) == 1
+    assert (
+        main(
+            [
+                "intake",
+                "--csv",
+                str(tmp_path / "missing.csv"),
+                "--task",
+                "检查数据",
+                "--offline",
+                "--output-dir",
+                str(tmp_path / "runs"),
+            ]
+        )
+        == 1
+    )
     report = json.loads(capsys.readouterr().out)
     assert report["status"] == "error"
 
@@ -93,14 +131,25 @@ def test_offline_intake_cli_has_no_credentials(tmp_path, capsys):
     csv.write_text("condition,measurement\nA,2\nB,4\n", encoding="utf-8")
     task = tmp_path / "task.txt"
     task.write_text("比较不同条件的测量结果", encoding="utf-8")
-    assert main([
-        "intake", "--csv", str(csv), "--task-file", str(task), "--offline",
-        "--output-dir", str(tmp_path / "runs"),
-    ]) == 0
+    assert (
+        main(
+            [
+                "intake",
+                "--csv",
+                str(csv),
+                "--task-file",
+                str(task),
+                "--offline",
+                "--output-dir",
+                str(tmp_path / "runs"),
+            ]
+        )
+        == 0
+    )
     report = json.loads(capsys.readouterr().out)
     assert report["status"] == "completed"
     assert report["mode"] == "offline"
-    assert report["profile_completed"] is True
+    assert report["profile_result"]["status"] == "completed"
     assert "condition" in report["final_answer"]
 
 
@@ -115,14 +164,28 @@ def test_live_mode_configuration_error_is_clear(tmp_path, monkeypatch, capsys):
 def test_encoding_and_delimiter_cli(tmp_path, capsys):
     csv = tmp_path / "chinese.csv"
     csv.write_bytes("组别;数值\n甲;2\n乙;4\n".encode("gb18030"))
-    assert main([
-        "intake", "--csv", str(csv), "--task", "比较组别", "--offline",
-        "--encoding", "gb18030", "--delimiter", ";",
-        "--output-dir", str(tmp_path / "runs"),
-    ]) == 0
+    assert (
+        main(
+            [
+                "intake",
+                "--csv",
+                str(csv),
+                "--task",
+                "比较组别",
+                "--offline",
+                "--encoding",
+                "gb18030",
+                "--delimiter",
+                ";",
+                "--output-dir",
+                str(tmp_path / "runs"),
+            ]
+        )
+        == 0
+    )
     report = json.loads(capsys.readouterr().out)
-    assert report["profile"]["columns"][0]["name"] == "组别"
-    assert report["profile"]["row_count"] == 2
+    assert report["profile_result"]["columns"][0]["name"] == "组别"
+    assert report["profile_result"]["row_count"] == 2
 
 
 def test_removed_profile_command_is_rejected(capsys):
@@ -136,7 +199,7 @@ def test_cli_version_stays_available(capsys):
     with pytest.raises(SystemExit) as caught:
         main(["--version"])
     assert caught.value.code == 0
-    assert capsys.readouterr().out.strip() == "LabWeaver 0.1.0"
+    assert capsys.readouterr().out.strip() == "LabWeaver 0.2.0"
 
 
 def test_cli_can_run_intake_with_only_configuration(tmp_path, monkeypatch, capsys):
@@ -151,7 +214,7 @@ def test_cli_can_run_intake_with_only_configuration(tmp_path, monkeypatch, capsy
     report = json.loads(output.out)
     assert report["status"] == "completed"
     assert report["task"] == "先确认问卷分析方向"
-    assert report["profile"]["columns"][0]["name"] == "组别"
+    assert report["profile_result"]["columns"][0]["name"] == "组别"
     assert "Run report saved:" in output.err
     assert len(list((tmp_path / "runs").rglob("*.json"))) == 1
 
@@ -164,8 +227,21 @@ def test_explicit_missing_intake_config_is_clear(tmp_path, capsys):
 def test_cli_missing_task_file_is_clear(tmp_path, capsys):
     csv = tmp_path / "table.csv"
     csv.write_text("value\n1\n", encoding="utf-8")
-    assert main(["intake", "--csv", str(csv), "--task-file", str(tmp_path / "absent.txt"),
-                 "--offline", "--output-dir", str(tmp_path / "runs")]) == 2
+    assert (
+        main(
+            [
+                "intake",
+                "--csv",
+                str(csv),
+                "--task-file",
+                str(tmp_path / "absent.txt"),
+                "--offline",
+                "--output-dir",
+                str(tmp_path / "runs"),
+            ]
+        )
+        == 2
+    )
     output = capsys.readouterr()
     assert output.out == ""
     assert not list(tmp_path.glob("runs/*.json"))
@@ -180,8 +256,23 @@ def test_cli_overrides_config_and_paths_follow_cwd(tmp_path, monkeypatch, capsys
     )
     monkeypatch.chdir(tmp_path)
     (tmp_path / "selected.csv").write_text("condition,value\nA,2\n", encoding="utf-8")
-    assert main(["intake", "--config", "project/labweaver.toml", "--csv", "selected.csv",
-                 "--task", "覆盖文件任务", "--offline", "--output-dir", "results"]) == 0
+    assert (
+        main(
+            [
+                "intake",
+                "--config",
+                "project/labweaver.toml",
+                "--csv",
+                "selected.csv",
+                "--task",
+                "覆盖文件任务",
+                "--offline",
+                "--output-dir",
+                "results",
+            ]
+        )
+        == 0
+    )
     report = json.loads(capsys.readouterr().out)
     assert report["task"] == "覆盖文件任务"
     assert report["source"]["name"] == "selected.csv"
@@ -193,17 +284,25 @@ def test_cli_success_requires_completed(tmp_path, monkeypatch, capsys):
     import labweaver.runtime.intake as intake_runtime
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(intake_runtime, "execute_intake", lambda config: (
-        {"status": "completed"}, tmp_path / "record.json",
-    ))
+    monkeypatch.setattr(
+        intake_runtime,
+        "execute_intake",
+        lambda config: (
+            {"status": "completed"},
+            tmp_path / "record.json",
+        ),
+    )
     assert main(["intake", "--offline"]) == 0
     assert json.loads(capsys.readouterr().out)["status"] == "completed"
 
 
-@pytest.mark.parametrize("arguments", [
-    ["--task", "one", "--task-file", "two.txt"],
-    ["--offline", "--live"],
-])
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--task", "one", "--task-file", "two.txt"],
+        ["--offline", "--live"],
+    ],
+)
 def test_cli_conflicting_task_or_mode_is_rejected(arguments):
     with pytest.raises(SystemExit) as caught:
         main(["intake", *arguments])
@@ -214,4 +313,3 @@ def test_cli_negative_sample_count_is_config_error(tmp_path, monkeypatch, capsys
     monkeypatch.chdir(tmp_path)
     assert main(["intake", "--offline", "--sample-rows", "-1"]) == 2
     assert "nonnegative integer" in capsys.readouterr().err
-

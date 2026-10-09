@@ -22,7 +22,9 @@ class IntakeConfig:
     sample_rows: int
     output_dir: Path
     material_paths: tuple[Path, ...] = ()
-    font_path: Path | None = None
+    execution_image: str = "labweaver-python:0.2.0"
+    execution_timeout: int = 60
+    analysis_max_tokens: int = 4096
 
 
 _DEFAULTS = {
@@ -34,10 +36,28 @@ _DEFAULTS = {
     "sample_rows": 5,
     "output_dir": "runs",
     "materials": [],
+    "execution_image": "labweaver-python:0.2.0",
+    "execution_timeout": 60,
+    "analysis_max_tokens": 4096,
 }
-_KEYS = frozenset({"csv", "task", "task_file", "mode", "env_file", "encoding",
-                   "delimiter", "sample_rows", "output_dir", "materials", "font_path"})
-_PATH_KEYS = frozenset({"csv", "task_file", "env_file", "output_dir", "font_path"})
+_KEYS = frozenset(
+    {
+        "csv",
+        "task",
+        "task_file",
+        "mode",
+        "env_file",
+        "encoding",
+        "delimiter",
+        "sample_rows",
+        "output_dir",
+        "materials",
+        "execution_image",
+        "execution_timeout",
+        "analysis_max_tokens",
+    }
+)
+_PATH_KEYS = frozenset({"csv", "task_file", "env_file", "output_dir"})
 
 
 def _normalize_delimiter(value: Any) -> str:
@@ -47,13 +67,19 @@ def _normalize_delimiter(value: Any) -> str:
         return value
     normalized = "\t" if value in {"tab", "\\t"} else value
     if len(normalized) != 1 or normalized in {"\n", "\r", "\x00", '"'}:
-        raise ConfigurationError("Setting 'delimiter' must be 'auto', one separator character, or 'tab'.")
+        raise ConfigurationError(
+            "Setting 'delimiter' must be 'auto', one separator character, or 'tab'."
+        )
     return normalized
 
 
 def _resolve_path(value: Any, base: Path, key: str) -> Path:
-    if not isinstance(value, (str, Path)) or (isinstance(value, str) and not value.strip()):
-        raise ConfigurationError(f"Setting '{key}' must be a nonempty file or directory path.")
+    if not isinstance(value, (str, Path)) or (
+        isinstance(value, str) and not value.strip()
+    ):
+        raise ConfigurationError(
+            f"Setting '{key}' must be a nonempty file or directory path."
+        )
     try:
         path = Path(value).expanduser()
         return (path if path.is_absolute() else base / path).resolve()
@@ -64,20 +90,30 @@ def _resolve_path(value: Any, base: Path, key: str) -> Path:
 def _read_layer(path: Path, *, required: bool) -> dict:
     if not path.exists():
         if required:
-            raise ConfigurationError("The selected intake configuration file does not exist.")
+            raise ConfigurationError(
+                "The selected intake configuration file does not exist."
+            )
         return {}
     try:
         document = tomllib.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError):
-        raise ConfigurationError("The intake configuration file could not be read as UTF-8.") from None
+        raise ConfigurationError(
+            "The intake configuration file could not be read as UTF-8."
+        ) from None
     except tomllib.TOMLDecodeError:
         # TOML exceptions can include source text, which may contain secrets.
-        raise ConfigurationError("The intake configuration file contains invalid TOML.") from None
+        raise ConfigurationError(
+            "The intake configuration file contains invalid TOML."
+        ) from None
     if set(document) - {"intake"}:
-        raise ConfigurationError("Only the '[intake]' section is supported in intake configuration files.")
+        raise ConfigurationError(
+            "Only the '[intake]' section is supported in intake configuration files."
+        )
     layer = document.get("intake", {})
     if not isinstance(layer, dict):
-        raise ConfigurationError("The intake configuration must contain an '[intake]' table.")
+        raise ConfigurationError(
+            "The intake configuration must contain an '[intake]' table."
+        )
     return layer
 
 
@@ -87,19 +123,32 @@ def _apply_layer(settings: dict, layer: dict, *, base: Path) -> None:
         names = ", ".join(sorted(str(key) for key in unknown))
         raise ConfigurationError(f"Unknown intake setting(s): {names}.")
     if "task" in layer and "task_file" in layer:
-        raise ConfigurationError("Use either 'task' or 'task_file' within one configuration layer.")
+        raise ConfigurationError(
+            "Use either 'task' or 'task_file' within one configuration layer."
+        )
     normalized = {}
     for key, value in layer.items():
         if key == "materials":
             if not isinstance(value, (list, tuple)):
-                raise ConfigurationError("Setting 'materials' must be an array of file paths.")
+                raise ConfigurationError(
+                    "Setting 'materials' must be an array of file paths."
+                )
             normalized[key] = tuple(_resolve_path(item, base, key) for item in value)
         elif key in _PATH_KEYS:
             normalized[key] = _resolve_path(value, base, key)
-        elif key == "sample_rows":
+        elif key in {"sample_rows", "execution_timeout", "analysis_max_tokens"}:
             if type(value) is not int or value < 0:
-                raise ConfigurationError("Setting 'sample_rows' must be a nonnegative integer.")
+                raise ConfigurationError(
+                    "Setting 'sample_rows' must be a nonnegative integer."
+                )
             normalized[key] = value
+            if (
+                key == "execution_timeout"
+                and not 1 <= value <= 120
+                or key == "analysis_max_tokens"
+                and not 256 <= value <= 16384
+            ):
+                raise ConfigurationError(f"Setting '{key}' is out of range.")
         elif key == "delimiter":
             normalized[key] = _normalize_delimiter(value)
         elif key == "mode":
@@ -140,13 +189,19 @@ def load_intake_config(
     dotenv = directory / ".env"
     if dotenv.is_file():
         settings["env_file"] = dotenv.resolve()
-    _apply_layer(settings, _read_layer(public_path, required=config_path is not None), base=directory)
+    _apply_layer(
+        settings,
+        _read_layer(public_path, required=config_path is not None),
+        base=directory,
+    )
     local_path = directory / "labweaver.local.toml"
     if local_path != public_path:
         _apply_layer(settings, _read_layer(local_path, required=False), base=directory)
     if overrides is not None:
         if not isinstance(overrides, dict):
-            raise ConfigurationError("Intake overrides must be a dictionary of settings.")
+            raise ConfigurationError(
+                "Intake overrides must be a dictionary of settings."
+            )
         _apply_layer(settings, overrides, base=cwd)
     return IntakeConfig(
         csv_path=settings["csv"],
@@ -159,5 +214,7 @@ def load_intake_config(
         sample_rows=settings["sample_rows"],
         output_dir=settings["output_dir"],
         material_paths=settings["materials"],
-        font_path=settings.get("font_path"),
+        execution_image=settings["execution_image"],
+        execution_timeout=settings["execution_timeout"],
+        analysis_max_tokens=settings["analysis_max_tokens"],
     )

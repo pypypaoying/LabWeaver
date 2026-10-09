@@ -64,10 +64,12 @@ def _interactive_config(config):
     from labweaver.config import ConfigurationError
     from labweaver.runtime.intake import resolve_task
 
-    print("LabWeaver：只读 CSV 数据任务助手。输入退出可结束当前会话。")
+    print("LabWeaver：CSV 代码分析助手（源文件只读）。输入退出可结束当前会话。")
     selected = input(f"CSV 完整路径（回车使用 {config.csv_path}）：").strip()
     csv_path = _selected_file(selected or str(config.csv_path))
-    material_text = input("可选 TXT/MD/PDF 资料路径（多份用分号分隔；回车不提供资料）：").strip()
+    material_text = input(
+        "可选 TXT/MD/PDF 资料路径（多份用分号分隔；回车不提供资料）："
+    ).strip()
     materials = []
     if material_text:
         for value in material_text.split(";"):
@@ -79,22 +81,36 @@ def _interactive_config(config):
         default_task = resolve_task(config)
     except (OSError, UnicodeError):
         default_task = DEFAULT_TASK
-    task = _task_text(input("任务说明（回车使用示例任务；也可输入 @任务TXT路径）："), default_task)
-    return replace(config, csv_path=csv_path, material_paths=tuple(materials), task=task, task_file=None)
+    task = _task_text(
+        input("任务说明（回车使用示例任务；也可输入 @任务TXT路径）："), default_task
+    )
+    return replace(
+        config,
+        csv_path=csv_path,
+        material_paths=tuple(materials),
+        task=task,
+        task_file=None,
+    )
 
 
 def _show_report(report: dict, saved: Path, *, streamed_answer: str = "") -> None:
     print(f"\n运行状态：{report['status']}")
-    print(f"模型调用：{report.get('model_calls', 0)} 次；实际工具执行：{len(report.get('execution_ledger', []))} 次")
-    print(f"可视化模型调用：{report.get('visualization_model_calls', 0)} 次；"
-          f"绘图状态：{report.get('visualization_status', 'not_needed')}")
-    visualization_elapsed = sum(run.get("elapsed_seconds", 0) for run in report.get("visualization_runs", []))
-    if report.get("visualization_runs"):
-        print(f"可视化耗时：{visualization_elapsed:.2f} 秒")
-    for run in report.get("visualization_runs", []):
-        if run.get("error"):
-            error = run["error"]
-            print(f"绘图失败：{error['code']} — {error['message']}")
+    print(
+        f"模型调用：{report.get('model_calls', 0)} 次；实际工具执行：{len(report.get('execution_ledger', []))} 次"
+    )
+    print(
+        f"代码模型调用：{report.get('analysis_model_calls', 0)} 次；代码执行：{len(report.get('code_executions', []))} 次"
+    )
+    for execution in report.get("code_executions", []):
+        print(
+            f"执行 {execution['id']}：{execution['status']}，{execution['elapsed_seconds']:.2f} 秒"
+        )
+        if execution.get("error"):
+            print(
+                f"执行失败：{execution['error']['code']} — {execution['error']['message']}"
+            )
+    if report.get("missing_deliverables"):
+        print("未完成交付项：" + "、".join(report["missing_deliverables"]))
     profile = report.get("profile_result") or report.get("profile")
     if profile and profile.get("status") == "completed":
         print(f"数据概览：{profile['row_count']} 行 × {profile['column_count']} 列")
@@ -108,32 +124,36 @@ def _show_report(report: dict, saved: Path, *, streamed_answer: str = "") -> Non
     answer = report.get("answer_text", report.get("final_answer", ""))
     if answer and answer != streamed_answer:
         print("\nAgent 回答：\n" + answer)
-    if "answer_text" in report:
-        from labweaver.agent import _table_markdown
-        for number, result in enumerate(report.get("analysis_results", []), 1):
-            rows = result["rows"]
-            print(f"\n统计结果 {number}：共 {len(rows)} 项" + ("（终端预览前 10 项，完整表见结果 CSV）" if len(rows) > 10 else ""))
-            print(_table_markdown({**result, "rows": rows[:10]}))
-            if result.get("truncated"):
-                print(f"按 top_k={result['spec']['top_k']} 选取，原始共 {result['group_count']} 组。")
+    from labweaver.agent import _table_markdown
+
+    for artifact in report.get("artifacts", []):
+        print(f"\n成果：{artifact['label']}（{artifact['kind']}）")
+        if artifact.get("preview"):
+            print(_table_markdown(artifact["preview"]))
+            print(f"共 {artifact['row_count']} 行；完整结果见导出 CSV。")
+        elif artifact["kind"] == "metric":
+            print(artifact.get("value"))
     if report.get("status") == "awaiting_input":
         question = report.get("question", "")
         if isinstance(question, dict):
-            question = question.get("question") or question.get("message") or str(question)
+            question = (
+                question.get("question") or question.get("message") or str(question)
+            )
         print("\nAgent 需要确认：\n" + str(question))
     print(f"\n完整运行记录：{saved}")
     if report.get("brief_path"):
         print(f"任务简报：{report['brief_path']}")
-    for path in report.get("result_csv_paths", []):
-        print(f"结果 CSV：{path}")
-    for paths in report.get("chart_paths", []):
-        for kind, path in paths.items():
-            print(f"{'绘图数据 CSV' if kind == 'data_csv' else '图表 ' + kind.upper()}：{path}")
+    for path in report.get("artifact_paths", []):
+        print(f"产物：{path}")
 
 
 def _conversation(config) -> int:
     """Resume interrupts and accept follow-ups on the same in-memory graph."""
-    from labweaver.runtime.intake import create_runtime_session, resolve_task, save_session_report
+    from labweaver.runtime.intake import (
+        create_runtime_session,
+        resolve_task,
+        save_session_report,
+    )
     from labweaver.runtime.streaming import ConsoleStream
 
     session = create_runtime_session(config)
@@ -152,7 +172,9 @@ def _conversation(config) -> int:
             if report.get("status") == "awaiting_input":
                 reply = input("\n你的回答（输入退出结束）：").strip()
                 if reply.lower() in exit_words:
-                    report, saved = save_session_report(session.cancel(), config, session=session)
+                    report, saved = save_session_report(
+                        session.cancel(), config, session=session
+                    )
                     _show_report(report, saved)
                     return 0
                 if not reply:
@@ -167,7 +189,9 @@ def _conversation(config) -> int:
                 stream = ConsoleStream()
                 report = session.invoke(_task_text(follow_up), on_event=stream)
     except (EOFError, KeyboardInterrupt):
-        cancelled, saved = save_session_report(session.cancel(), config, session=session)
+        cancelled, saved = save_session_report(
+            session.cancel(), config, session=session
+        )
         _show_report(cancelled, saved)
         print("当前会话已结束。")
         return 0
@@ -186,8 +210,14 @@ def main(*, interactive: bool = False) -> int:
         from labweaver.run_config import load_intake_config
         from labweaver.runtime.intake import execute_intake
     except ModuleNotFoundError:
-        executable = Path.cwd() / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-        print(f"缺少项目依赖，请先安装依赖并选择项目解释器：{executable}", file=sys.stderr)
+        executable = (
+            Path.cwd()
+            / ".venv"
+            / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+        )
+        print(
+            f"缺少项目依赖，请先安装依赖并选择项目解释器：{executable}", file=sys.stderr
+        )
         return 2
     try:
         overrides = dict(OVERRIDES)
@@ -196,7 +226,9 @@ def main(*, interactive: bool = False) -> int:
         config = load_intake_config(CONFIG_PATH, overrides=overrides)
         if interactive:
             config = _interactive_config(config)
-        print(f"LabWeaver | 模式：{config.mode} | CSV：{config.csv_path.name}", flush=True)
+        print(
+            f"LabWeaver | 模式：{config.mode} | CSV：{config.csv_path.name}", flush=True
+        )
         print(f"可用任务资料：{len(config.material_paths)} 份", flush=True)
         print("正在运行 Agent，等待工具结果和模型回答……", flush=True)
         if interactive:

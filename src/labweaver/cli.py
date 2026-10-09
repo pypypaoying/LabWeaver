@@ -18,7 +18,7 @@ def _delimiter(value: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="LabWeaver read-only CSV task agent")
-    parser.add_argument("--version", action="version", version="LabWeaver 0.1.0")
+    parser.add_argument("--version", action="version", version="LabWeaver 0.2.0")
     commands = parser.add_subparsers(dest="command", required=True)
     command = commands.add_parser("intake")
     command.add_argument("--config", type=Path)
@@ -27,7 +27,9 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--delimiter", type=_delimiter)
     command.add_argument("--sample-rows", type=int)
     command.add_argument("--output-dir", type=Path)
-    command.add_argument("--font-path", type=Path, help="Optional font file for chart labels")
+    command.add_argument("--execution-image")
+    command.add_argument("--execution-timeout", type=int)
+    command.add_argument("--analysis-max-tokens", type=int)
     command.add_argument("--material", action="append", type=Path, dest="materials")
     task = command.add_mutually_exclusive_group()
     task.add_argument("--task")
@@ -45,8 +47,11 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     args = build_parser().parse_args(argv)
-    overrides = {key: value for key, value in vars(args).items()
-                 if key not in {"command", "config"} and value is not None}
+    overrides = {
+        key: value
+        for key, value in vars(args).items()
+        if key not in {"command", "config"} and value is not None
+    }
     try:
         from labweaver.runtime.intake import execute_intake
 
@@ -56,7 +61,10 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
     except (OSError, UnicodeError):
-        print("Could not read the task file or write the local run report.", file=sys.stderr)
+        print(
+            "Could not read the task file or write the local run report.",
+            file=sys.stderr,
+        )
         return 2
     print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
     print(f"Run report saved: {saved}", file=sys.stderr)
@@ -69,7 +77,9 @@ def main(argv: list[str] | None = None) -> int:
         for kind, path in paths.items():
             print(f"Chart {kind} saved: {path}", file=sys.stderr)
     if report.get("status") == "awaiting_input":
-        print("A reply is required. Run labweaver.app in VS Code for a continuous conversation.", file=sys.stderr)
+        print(
+            "A reply is required. Run labweaver.app in VS Code for a continuous conversation.",
+            file=sys.stderr,
+        )
         return 3
     return 0 if report.get("status") == "completed" else 1
-
