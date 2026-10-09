@@ -1,5 +1,6 @@
 """Trace and citation checks do not prove semantic correctness."""
 
+import json
 import math
 import re
 from typing import Any
@@ -52,6 +53,39 @@ def _message_content(message: Any) -> str:
             if isinstance(item, dict) and isinstance(item.get("text"), str)
         )
     return ""
+
+
+def parse_model_object(content: str, required_keys: set[str]) -> dict:
+    """Read one terminal protocol object, allowing a prose/fence wrapper.
+
+    Wrapper text is never used as an answer or evidence. Ambiguous protocol
+    objects, trailing prose, duplicate keys and non-finite JSON are rejected.
+    Callers still validate the schema and actual execution evidence.
+    """
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("Duplicate JSON key")
+            result[key] = value
+        return result
+
+    def invalid_constant(value):
+        raise ValueError("Non-finite JSON")
+
+    decoder = json.JSONDecoder(object_pairs_hook=pairs, parse_constant=invalid_constant)
+    candidates = []
+    for match in re.finditer(r"(?m)^[ \t]*(?:```(?:json)?[ \t]*\n[ \t]*)?(\{)", content):
+        start = match.start(1)
+        try:
+            value, end = decoder.raw_decode(content, start)
+        except ValueError:
+            continue
+        if isinstance(value, dict) and required_keys.issubset(value):
+            candidates.append((value, content[end:].strip()))
+    if len(candidates) != 1 or candidates[0][1] not in {"", "```"}:
+        raise ValueError("Expected one terminal JSON protocol object")
+    return candidates[0][0]
 
 
 def _trace_messages(messages: list[Any]) -> list[dict]:

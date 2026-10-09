@@ -183,6 +183,13 @@ class ConsoleStream:
                 "[计划] " + "；".join(d["description"] for d in event["deliverables"]),
                 flush=True,
             )
+        elif kind == "completion_feedback":
+            print(
+                "[核验] 先前生成文本尚未通过；正在补充真实执行。"
+                if event["reason"] == "missing_execution"
+                else "[核验] 正在修正回答格式，保留已有成果。",
+                flush=True,
+            )
         elif kind == "execution_start":
             print(
                 f"[代码执行] 第 {event['attempt']} 次"

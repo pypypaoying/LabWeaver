@@ -392,15 +392,20 @@ class DockerExecutor:
                         raise ExecutionError(
                             "artifact_rejected", payload["protocol_error"]
                         )
-                    assets = validate_payload(
-                        payload["artifacts"],
-                        deliverables=deliverables,
-                        source=snapshot.source,
-                        execution_id=record["id"],
-                        image_id=image_id,
-                        remaining_bytes=remaining_bytes,
-                        remaining_figures=remaining_figures,
-                    )
+                    try:
+                        assets = validate_payload(
+                            payload["artifacts"],
+                            deliverables=deliverables,
+                            source=snapshot.source,
+                            execution_id=record["id"],
+                            image_id=image_id,
+                            remaining_bytes=remaining_bytes,
+                            remaining_figures=remaining_figures,
+                        )
+                    except (ValueError, TypeError, KeyError) as exc:
+                        raise ExecutionError(
+                            "artifact_rejected", str(exc)[:500]
+                        ) from None
                     record.update(status="completed", artifact_ids=list(assets))
                 finally:
                     if process.poll() is None:

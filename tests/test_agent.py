@@ -281,6 +281,53 @@ def inject_executor(session, monkeypatch, *, failures=0, empty=False):
     return calls
 
 
+def test_premature_final_receives_one_feedback_then_real_execution(
+    csv_path, monkeypatch
+):
+    model = ScriptedModel(
+        responses=[
+            call(),
+            call("set_task_plan", "plan", {"deliverables": plan()}),
+            answer("calculation", "没有执行通道"),
+            call(
+                "delegate_analysis",
+                "delegate",
+                {"instruction": "统计各组", "deliverable_ids": ["table"]},
+            ),
+            answer("calculation"),
+        ]
+    )
+    session = create_session(csv_path, model, analysis_model=ReceiptModel())
+    calls = inject_executor(session, monkeypatch)
+    report = session.invoke("统计各组")
+    assert report["status"] == "completed", report.get("error")
+    assert len(report["completion_feedback"]) == 1 and len(calls) == 1
+    assert report["model_calls"] == 5 and not report["replies"]
+    paired(report)
+
+
+@pytest.mark.parametrize("first_answer", [answer("calculation"), AIMessage(content="执行工具不可用")])
+def test_persistent_premature_final_still_fails_after_one_feedback(csv_path, first_answer):
+    report = run_intake(
+        "统计各组",
+        csv_path,
+        ScriptedModel(
+            responses=[
+                call(),
+                call("set_task_plan", "plan", {"deliverables": plan()}),
+                first_answer,
+                answer("calculation"),
+            ]
+        ),
+    )
+    assert (
+        report["status"] == "error"
+        and report["error"]["code"] == "missing_deliverables"
+    )
+    assert len(report["completion_feedback"]) == 1 and report["model_calls"] == 4
+    assert not report["code_executions"]
+
+
 def coordinator_responses():
     return [
         call(),
@@ -292,6 +339,44 @@ def coordinator_responses():
         ),
         answer("calculation"),
     ]
+
+
+@pytest.mark.parametrize("wording", ["不绘图", "不画图", "不要图表", "without plots"])
+def test_explicit_no_chart_does_not_require_figure(csv_path, monkeypatch, wording):
+    session = create_session(
+        csv_path, ScriptedModel(responses=coordinator_responses()),
+        analysis_model=ReceiptModel(),
+    )
+    inject_executor(session, monkeypatch)
+    report = session.invoke("分组统计并导出结果，" + wording)
+    assert report["status"] == "completed", report.get("error")
+    assert all(a["kind"] != "figure" for a in report["artifacts"])
+
+
+def test_malformed_final_can_be_corrected_without_recomputing(csv_path, monkeypatch):
+    session = create_session(
+        csv_path,
+        ScriptedModel(
+            responses=[
+                call(),
+                call("set_task_plan", "plan", {"deliverables": plan()}),
+                call(
+                    "delegate_analysis",
+                    "delegate",
+                    {"instruction": "统计各组", "deliverable_ids": ["table"]},
+                ),
+                AIMessage(content="文字在 JSON 外面"),
+                answer("calculation"),
+            ]
+        ),
+        analysis_model=ReceiptModel(),
+    )
+    calls = inject_executor(session, monkeypatch)
+    report = session.invoke("统计各组")
+    assert report["status"] == "completed", report.get("error")
+    assert len(calls) == len(report["completion_feedback"]) == 1
+    assert report["model_calls"] == 5
+    paired(report)
 
 
 def test_two_agents_repair_real_dispatch_and_export(csv_path, monkeypatch, tmp_path):

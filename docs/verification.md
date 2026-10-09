@@ -19,15 +19,26 @@ uv run --frozen pytest -q -m docker
 
 ## 本轮实际状态（2026-10-09）
 
-- 本机宿主回归：324 passed，28 subtests passed；15 项 Docker 测试在这轮宿主运行中明确排除。最后增加了 Docker context 优先级、固定已校验端点的测试，并显式阻止客户端代理配置将凭证注入容器。
-- [CI 验证提交 de27b9d](https://github.com/pypypaoying/LabWeaver/actions/runs/37922724378)：四个宿主环境全部通过；Ubuntu 真实 Docker 15 passed，并完成公开问卷的双 Agent 分析演示。该次镜像 ID 为 `sha256:c091fa4d7bde2f1dc71f292ad46c9eb7079509974023df1c9ab48248b01aa806`。
+- 本机最新宿主回归：342 passed，28 subtests passed，16 项 Docker 测试单独运行。包含 Docker context 优先级、固定已校验端点，以及显式阻止客户端代理配置将凭证注入容器。
+- 本机 Windows 真实 Docker 最终回归：16 passed，342 项宿主测试在该轮排除；两类验收合计358项通过。包括报错修正、产物拒绝原因、隔离、资源终止、取消清理及重放。
+- [此前 CI 验证提交 a8623c1](https://github.com/pypypaoying/LabWeaver/actions/runs/37923944631)：四个宿主环境全部通过；Ubuntu 真实 Docker 15 passed，并完成公开问卷的双 Agent 分析演示。该次镜像 ID 为 `sha256:b64639ca41847b6d0cade42faa643c1ad430018ad78018fa83dd127895b68354`。最新提交的 CI 状态以仓库 Verification 工作流为准。
 - 核心数值已在真实容器中核对：交叉表 A(East=6/West=3)、B(East=5/West=1)；日汇总 5/4/3、峰谷差值2；清洗4→3行、去重1、填空1、保留001等编号。280组、大整数、错误修正、隔离、超时/OOM、取消、无模型重放均包含在 Docker 测试中。
-- 已下载公开合成 CI 图表并查看 PNG 与 SVG 渲染：中文标题/轴、分组和日期次序正常。没有将这些产物提交到库。
-- 真实在线模型＋公开 composite.csv 的纯概览：completed，主模型2次，代码模型0次；没有容器执行，不能据此称在线代码分析通过。
+- 已查看公开合成 CI 图表及本机真实在线图表的 PNG 与 SVG 渲染：中文标题/轴、分组和日期次序正常。没有将这些产物提交到库。
+- 重启并启动 Docker 后，本机 Windows Linux 引擎可运行，`labweaver-python:0.2.0` 镜像已构建。在线执行使用不可变 ID `sha256:63b9b1835fb762a71866337bf30e1f2aa56ac264bc2ca9ddb125fc7c40a69057`，没有降级到宿主执行。
 
-本机 Docker Desktop 4.94.0 和 Microsoft WSL 3.0.1 已安装，硬件虚拟化开启、Virtual Machine Platform 显示 Enabled，但 Windows 的 HypervisorPresent=false；Docker Linux 引擎报告 Virtual Machine Platform not enabled 并返回500。本机镜像构建、Windows真实容器和三个核心任务的在线模型验收尚未完成，需要完成 Windows 虚拟化启动/重启后复测。不自动重启用户电脑。
+### 真实在线模型＋Windows Docker
 
-D5 当前在 `codex/d5-validation` 验证分支，本机代码可检查；主分支仍保留此前版本。按“验收通过后发布”的约定，以上本机及在线项目通过前不更新 main。不将环境失败、测试替身或纯概览成功记作代码分析通过。
+三个案例均使用公开合成 CSV、现有在线模型接口和实际 Docker 执行；读取导出的完整 CSV/指标 JSON 与独立期望比较，而不是只检查 completed。
+
+| 案例 | 主/代码模型调用 | 实际代码执行 | 验证结果 |
+|---|---:|---:|---|
+| 拆分＋交叉统计＋分组柱状图 | 4 / 2 | 1 | A: East=6/West=3；B: East=5/West=1；实际 PNG/SVG 与绘图数据 |
+| 日期处理＋日汇总＋趋势图 | 5 / 2 | 1 | 日汇总5/4/3，峰值12/1=5，谷值12/3=3，差值2；完整日期升序表与图 |
+| 去重＋填空＋派生数据 | 4 / 2 | 1 | 4→3行，去重1、填空1，双倍4/0/8，编号001/002/003保留；没有绘图 |
+
+三次源 CSV 哈希均未改变，容器均已清理。日期案例的成功脚本已无模型重放，主/代码模型调用均为0，结果表 CSV 字节与原运行一致。
+
+首次在线验收暴露了字段映射使用错误、可选依赖 `tabulate` 缺失、交付项类型不匹配、模型提前结束与输出格式问题。修复通用协议和有限反馈并加入回归后完成上表验收；明确“不绘图”的请求也不再被图表关键词误判。运行记录保留在忽略目录，不发布模型正文、生成代码与产物。三例通过只证明这些案例，不能据此保证任意分析任务的数值正确性。
 
 ## 验收解释
 

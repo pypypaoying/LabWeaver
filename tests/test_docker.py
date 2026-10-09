@@ -139,6 +139,19 @@ def execute_script(code, tmp_path, *, timeout=60):
     return executor, record, assets
 
 
+def test_artifact_kind_mismatch_has_actionable_error(tmp_path):
+    executor = DockerExecutor()
+    record, assets = executor.execute(
+        "from helper import load_dataset,emit_table\nemit_table(load_dataset(), 'notes')",
+        load_csv_snapshot(FIXTURES / "cleaning.csv"),
+        [{"id": "notes", "kind": "explanation", "description": "支撑事实"}],
+    )
+    assert record["status"] == "error" and not assets
+    assert record["error"]["code"] == "artifact_rejected"
+    assert "authorized deliverable" in record["error"]["message"]
+    assert record["container_removed"]
+
+
 def test_sandbox_blocks_network_host_files_and_input_writes(tmp_path):
     code = """from helper import load_dataset, emit_table
 import pandas as pd, socket, os
