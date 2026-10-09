@@ -127,6 +127,24 @@ def test_total_byte_limit_is_not_a_row_limit():
     assert next(iter(assets(payload(1000)).values()))["metadata"]["row_count"] == 1000
 
 
+def test_output_field_can_exceed_input_field_limit_without_changing_global_limit():
+    import csv
+    from labweaver.runtime.artifacts import csv_table
+
+    before = csv.field_size_limit()
+    text = "x" * 200_000
+    assert csv_table(("value\n" + text + "\n").encode())[1] == [{"value": text}]
+    assert csv.field_size_limit() == before
+
+
+def test_svg_local_quoted_reference_allowed_external_still_rejected():
+    validate_svg(b"<svg><path style=\"clip-path:url('\x23clip')\"/></svg>")
+    with pytest.raises(ValueError):
+        validate_svg(
+            b"<svg><path style=\"fill:url('https://example.invalid')\"/></svg>"
+        )
+
+
 @pytest.mark.parametrize(
     "svg",
     [
@@ -159,6 +177,12 @@ def test_png_crc_and_structure():
         + chunk(b"IEND", b"")
     )
     validate_png(raw)
+    # Matplotlib raster/heatmap SVGs embed PNGs, not active SVG or external URLs.
+    validate_svg(
+        b'<svg><image href="data:image/png;base64,'
+        + base64.b64encode(raw)
+        + b'"/></svg>'
+    )
     with pytest.raises(ValueError):
         validate_png(raw[:-1])
 

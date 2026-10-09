@@ -68,7 +68,13 @@ class OfflineIntakeModel(BaseChatModel):
             return self._call(
                 "search_materials", {"query": "score 实验 变量 方法 要求"}
             )
-        calculation = bool(re.search(r"统计|交叉|汇总|绘|画|清洗|去重|拆分|计算", task))
+        affirmative = re.sub(r"(?:不需要|不要|无需|不执行|不用)[^。；;\n]*", "", task)
+        calculation = bool(
+            re.search(
+                r"统计|交叉|汇总|绘|画|清洗|去重|去除|填充|派生|导出|拆分|计算",
+                affirmative,
+            )
+        )
         if calculation and "set_task_plan" not in names:
             deliveries = [
                 {"id": "table", "kind": "table", "description": "完整统计或派生数据表"}
@@ -196,7 +202,7 @@ ax.plot(pd.to_datetime(plot_data['日期']), plot_data['数量'], marker='o')
 ax.set(title='数量趋势', xlabel='日期', ylabel='数量')
 fig.autofmt_xdate()
 """
-    elif "缺失" in instruction or "去重" in instruction:
+    elif re.search(r"缺失|去重|重复|空白|清洗", instruction):
         amount = columns.get("数量", columns.get("value"))
         body = f"""before = len(df)
 duplicates = int(df.duplicated().sum())

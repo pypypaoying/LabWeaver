@@ -90,9 +90,80 @@ def test_summary_no_network_or_container(csv_path, monkeypatch):
 
 
 def test_negated_calculation_and_chart_words_do_not_force_execution(csv_path):
-    report = run_intake("仅概述数据规模、字段与缺失情况，不需要计算或绘图。", csv_path,
-                        ScriptedModel(responses=[call(), answer()]))
+    report = run_intake(
+        "仅概述数据规模、字段与缺失情况，不需要计算或绘图。",
+        csv_path,
+        ScriptedModel(responses=[call(), answer()]),
+    )
     assert report["status"] == "completed", report.get("error")
+
+
+def test_overview_plan_is_delivered_in_report_without_code(csv_path, monkeypatch):
+    session = create_session(
+        csv_path,
+        ScriptedModel(
+            responses=[
+                call(),
+                call(
+                    "set_task_plan",
+                    "plan",
+                    {
+                        "deliverables": [
+                            {
+                                "id": "overview",
+                                "kind": "explanation",
+                                "description": "概览实际字段",
+                            }
+                        ]
+                    },
+                ),
+                answer(),
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        session.executor,
+        "execute",
+        lambda *a, **k: pytest.fail("Unnecessary execution"),
+    )
+    report = session.invoke("仅概述字段，不需要计算或绘图。")
+    assert report["status"] == "completed", report.get("error")
+    assert report["fulfilled_deliverable_ids"] == ["overview"]
+    assert (
+        report["answer_deliverables"][0]["source"] == report["profile_result"]["source"]
+    )
+    assert not report["code_executions"] and report["analysis_status"] == "not_needed"
+    paired(report)
+
+
+@pytest.mark.parametrize(
+    "kind,task", [("table", "概览"), ("explanation", "统计各组平均值")]
+)
+def test_final_text_cannot_replace_computed_outputs(csv_path, kind, task):
+    report = run_intake(
+        task,
+        csv_path,
+        ScriptedModel(
+            responses=[
+                call(),
+                call(
+                    "set_task_plan",
+                    "plan",
+                    {
+                        "deliverables": [
+                            {"id": "result", "kind": kind, "description": "真实结果"}
+                        ]
+                    },
+                ),
+                answer(),
+            ]
+        ),
+    )
+    assert (
+        report["status"] == "error"
+        and report["error"]["code"] == "missing_deliverables"
+    )
+    assert report["answer_deliverables"] == []
 
 
 @pytest.mark.parametrize(

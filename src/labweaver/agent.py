@@ -365,7 +365,7 @@ class AgentSession:
 
         @tool("set_task_plan", args_schema=PlanArguments)
         def bound_plan(deliverables: list) -> dict:
-            """Record ALL required task outputs before delegation. Each output has a stable id, kind(table/metric/figure/explanation), description. For explanation emit a metric containing computed supporting facts. Plan must cover the user's entire request; cannot change after execution starts."""
+            """Record ALL required task outputs before delegation. Each output has a stable id, kind(table/metric/figure/explanation), description. Computed explanations need supporting facts from code. A pure overview explanation may be delivered in the final report from the real profile/retrieval results. Plan must cover the user's entire request; cannot change after execution starts."""
             items = [
                 d.model_dump() if isinstance(d, Deliverable) else d
                 for d in deliverables
@@ -674,6 +674,7 @@ class AgentSession:
             ):
                 error = error or "unmatched_artifact_evidence"
         answer, reason, citations, kind = "", "", [], ""
+        answer_deliverables = []
         if not pending and not error:
             try:
                 if (
@@ -704,6 +705,34 @@ class AgentSession:
                     raise ValueError
             except (ValueError, TypeError, KeyError):
                 error = "invalid_final_answer"
+            if not error and searches:
+                citations, citation_error = _validate_citations(
+                    answer, list(self._all_chunks.values())
+                )
+                error = citation_error
+            if (
+                not error
+                and kind == "summary"
+                and not _requires_analysis(self.task)
+                and self.deliverables
+                and all(d["kind"] == "explanation" for d in self.deliverables)
+                and not self.analyst.runs
+            ):
+                # A real overview is itself an explanatory report deliverable.
+                # This never substitutes for a computed table, metric or figure.
+                answer_deliverables = [
+                    {
+                        "deliverable_id": d["id"],
+                        "report_field": "final_answer",
+                        "source": copy.deepcopy(self.profile_result["source"]),
+                        "evidence_fields": ["profile_result", "retrieved_chunks"],
+                    }
+                    for d in self.deliverables
+                ]
+                fulfilled.update(d["deliverable_id"] for d in answer_deliverables)
+                missing = [
+                    d["id"] for d in self.deliverables if d["id"] not in fulfilled
+                ]
             if (
                 not error
                 and (kind == "calculation" or _requires_analysis(self.task))
@@ -721,13 +750,13 @@ class AgentSession:
                 )
             ):
                 error = "missing_figure_deliverable"
-            if not error and self.deliverables and not completed_ids:
+            if (
+                not error
+                and self.deliverables
+                and not completed_ids
+                and not answer_deliverables
+            ):
                 error = "missing_execution_evidence"
-            if not error and searches:
-                citations, citation_error = _validate_citations(
-                    answer, list(self._all_chunks.values())
-                )
-                error = citation_error
         question = "\n".join(
             i.value.get("question", "") for i in interrupts if isinstance(i.value, dict)
         )
@@ -758,6 +787,7 @@ class AgentSession:
             "tool_attempts": self.harness.tool_attempts,
             "task_plan": self.deliverables,
             "fulfilled_deliverable_ids": sorted(fulfilled),
+            "answer_deliverables": answer_deliverables,
             "missing_deliverables": missing,
             "artifacts": artifacts,
             "analysis_runs": self.analyst.runs,

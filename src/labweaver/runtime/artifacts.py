@@ -72,6 +72,10 @@ def validate_svg(raw):
         "tspan",
         "clipPath",
         "use",
+        "image",
+        "linearGradient",
+        "radialGradient",
+        "stop",
         "title",
         "desc",
         "style",
@@ -93,13 +97,27 @@ def validate_svg(raw):
         for key, value in node.attrib.items():
             key = key.split("}")[-1].lower()
             if (
+                key == "href"
+                and node.tag.split("}")[-1] == "image"
+                and value.startswith("data:image/png;base64,")
+            ):
+                validate_png(
+                    base64.b64decode(
+                        "".join(value.split(",", 1)[1].split()), validate=True
+                    )
+                )
+                continue
+            if (
                 key.startswith("on")
                 or key in {"href", "src"}
                 and not re.fullmatch(r"#[\w.-]+", value)
             ):
                 raise ValueError("SVG active content or external link")
+            without_local_urls = re.sub(
+                r"url\s*\(\s*(['\"]?)#[\w.-]+\1\s*\)", "", value, flags=re.I
+            )
             if re.search(
-                r"@import|(?:javascript|data):|url\s*\(\s*['\"]?(?!#)", value, re.I
+                r"@import|(?:javascript|data):|url\s*\(", without_local_urls, re.I
             ):
                 raise ValueError("SVG external resource")
         if node.tag.split("}")[-1] == "style" and re.search(
@@ -110,16 +128,27 @@ def validate_svg(raw):
 
 def csv_table(raw):
     # Output tables can exceed input field limits, but never the total byte budget.
-    with io.StringIO(raw.decode("utf-8-sig", errors="strict"), newline="") as stream:
-        reader = csv.reader(stream, strict=True)
-        columns = next(reader, None)
-        if not columns or len(set(columns)) != len(columns):
-            raise ValueError("Output table requires unique column labels")
-        rows = []
-        for row in reader:
-            if len(row) != len(columns):
-                raise ValueError("Invalid output table width")
-            rows.append(dict(zip(columns, row)))
+    from labweaver.tools.csv_profile import _CSV_LOCK
+
+    if len(raw) > MAX_ARTIFACT_BYTES:
+        raise ValueError("Artifacts exceed 50 MiB")
+    with (
+        _CSV_LOCK,
+        io.StringIO(raw.decode("utf-8-sig", errors="strict"), newline="") as stream,
+    ):
+        previous_limit = csv.field_size_limit(MAX_ARTIFACT_BYTES)
+        try:
+            reader = csv.reader(stream, strict=True)
+            columns = next(reader, None)
+            if not columns or len(set(columns)) != len(columns):
+                raise ValueError("Output table requires unique column labels")
+            rows = []
+            for row in reader:
+                if len(row) != len(columns):
+                    raise ValueError("Invalid output table width")
+                rows.append(dict(zip(columns, row)))
+        finally:
+            csv.field_size_limit(previous_limit)
     return columns, rows
 
 
