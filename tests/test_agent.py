@@ -89,6 +89,12 @@ def test_summary_no_network_or_container(csv_path, monkeypatch):
     paired(result)
 
 
+def test_negated_calculation_and_chart_words_do_not_force_execution(csv_path):
+    report = run_intake("仅概述数据规模、字段与缺失情况，不需要计算或绘图。", csv_path,
+                        ScriptedModel(responses=[call(), answer()]))
+    assert report["status"] == "completed", report.get("error")
+
+
 @pytest.mark.parametrize(
     "responses,code",
     [

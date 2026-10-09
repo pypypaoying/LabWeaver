@@ -57,7 +57,20 @@ jobs:
       - name: Build locked analysis sandbox
         run: docker build -t labweaver-python:0.2.0 sandbox
       - name: Real container acceptance and isolation
-        run: uv run --frozen pytest -q -m docker
+        run: uv run --frozen pytest -q -m docker --basetemp .cache/pytest-docker-ci
       - name: Public survey example through both Agents
         run: uv run --frozen labweaver intake --offline --csv examples/data/survey.csv --task '统计部门满意度平均值并绘制柱状图'
+      - name: Preserve synthetic chart evidence for visual review
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: synthetic-docker-evidence
+          retention-days: 3
+          include-hidden-files: true
+          path: |
+            .cache/pytest-docker-ci/**/*.png
+            .cache/pytest-docker-ci/**/*.svg
+            .cache/pytest-docker-ci/**/*.csv
+            .cache/pytest-docker-ci/**/*metric.json
+          if-no-files-found: warn
 

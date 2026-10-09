@@ -104,6 +104,7 @@ def _requires_materials(task):
 
 
 def _requires_analysis(task):
+    task = re.sub(r"(?:不需要|不要|无需|不执行|不用)[^。；;\n]*", "", task)
     return bool(
         re.search(
             r"统计|排名|汇总|交叉|拆分|派生|重采样|清洗|处理缺失|去重|转换|计算|峰值|谷值|差值|最多|最少|前\s*(?:\d+|五|十)|求和|均值|平均|绘|图表|直方图|柱状图|折线图|\b(?:sum|mean|count|plot|chart|resample|clean|split|rank)\b",

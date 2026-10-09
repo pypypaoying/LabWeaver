@@ -178,6 +178,7 @@ result = df.pivot_table(index='类别', columns='区域', values='数量', aggfu
 plot_data = result.reset_index()
 fig, ax = plt.subplots()
 result.plot.bar(ax=ax, title='交叉统计', ylabel='数量', rot=0)
+result = plot_data
 """
     elif "日期" in instruction or "趋势" in instruction or "汇总" in instruction:
         date = next(columns[n] for n in columns if n in {"日期", "时间"})
@@ -203,8 +204,8 @@ df = df.drop_duplicates().copy()
 empty = df[{amount!r}].str.strip().eq('')
 missing = int(empty.sum())
 df.loc[empty, {amount!r}] = '0'
-df['数量'] = pd.to_numeric(df[{amount!r}], errors='raise')
-df['双倍数量'] = df['数量'] * 2
+df[{amount!r}] = pd.to_numeric(df[{amount!r}], errors='raise')
+df['双倍数量'] = df[{amount!r}] * 2
 df.columns = [next((c['name'] for c in df.attrs['columns'] if c['id'] == name), name) for name in df.columns]
 result = df
 metrics = {{'原始行数': before, '处理后行数': len(df), '删除重复': duplicates, '填充缺失': missing}}

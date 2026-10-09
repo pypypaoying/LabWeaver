@@ -35,7 +35,7 @@ def run_case(file, task, tmp_path):
         path, OfflineIntakeModel(), analysis_model=OfflineAnalysisModel()
     )
     result = session.invoke(task)
-    assert result["status"] == "completed", result
+    assert result["status"] == "completed", {"error": result.get("error"), "executions": result.get("code_executions")}
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
     assert (
         len(result["analysis_runs"]) == 1
