@@ -24,11 +24,12 @@ from labweaver.tools.csv_profile import CsvReadError, load_csv_snapshot
 from labweaver.tools.csv_analysis import analyze_csv
 from labweaver.tools.analysis_schema import AnalysisArguments, AnalysisSpec, FilterSpec
 from labweaver.tools.distribution import prepare_distribution
+from labweaver.tools.result_pages import chart_receipt, result_page
 from labweaver.visualizer import VisualizationRunner
 
 MAX_AGENT_PROFILE_BYTES = 64 * 1024
 _LIMITS = {"profile_csv": 1, "search_materials": 3, "analyze_csv": 4, "ask_user": 3,
-           "prepare_distribution": 2, "delegate_visualization": 2}
+           "prepare_distribution": 2, "delegate_visualization": 2, "read_analysis_rows": 8}
 _SYSTEM_PROMPT = """你是 LabWeaver，通用只读 CSV 分析助手，依据用户任务和实际数据完成分析。
 先用 profile_csv 了解数据；聚合使用 analyze_csv，分布使用 prepare_distribution，不从样例猜全量结果。
 结合任务和字段判断分组、指标与范围；能确定时直接执行，关键歧义才用 ask_user，沿用已确认口径。
@@ -53,6 +54,13 @@ class _DelegationArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
     data_id: str = Field(min_length=1, max_length=80)
     instruction: str = Field(min_length=1, max_length=2000)
+
+
+class _PageArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    data_id: str = Field(min_length=1, max_length=80)
+    offset: StrictInt = Field(default=0, ge=0)
+    limit: StrictInt = Field(default=500, ge=1, le=1000)
 
 
 def _json_safe(value: Any) -> Any:
@@ -291,7 +299,7 @@ class _IntakeHarness(AgentMiddleware):
                 {"analyze_csv", "ask_user", "prepare_distribution"} if self.profile_ready else {"profile_csv"}
             )
             if self.profile_ready and self.data_available():
-                names.add("delegate_visualization")
+                names.update({"delegate_visualization", "read_analysis_rows"})
             self._turn_ready = self.profile_ready
             if self.profile_ready and self.with_materials:
                 names.add("search_materials")
@@ -403,7 +411,9 @@ class _IntakeHarness(AgentMiddleware):
                     args == {}
                     if name == "profile_csv"
                     else isinstance(args, dict)
-                    and (set(args) <= {"column_position", "filters", "bins"} and "column_position" in args
+                    and (set(args) <= {"data_id", "offset", "limit"} and "data_id" in args
+                         if name == "read_analysis_rows" else
+                         set(args) <= {"column_position", "filters", "bins"} and "column_position" in args
                          if name == "prepare_distribution" else set(args) == (
                         {"spec"}
                         if name == "analyze_csv"
@@ -744,7 +754,7 @@ class AgentSession:
 
         @tool("analyze_csv", args_schema=AnalysisArguments)
         def bound_analyze(spec: dict) -> dict:
-            """Filter, group, aggregate and rank the bound snapshot. Use one-based column positions; no file paths. Parameters follow the typed schema; output is capped at 100 rows."""
+            """Filter/group/aggregate the full snapshot using one-based columns. top_k=null (default) retains ALL groups; only use a number for a requested top-N. Large results are saved in full but messages have preview_only and page.next_offset: use read_analysis_rows to read more, never treat a page as the whole table or compute totals from a preview."""
             if isinstance(spec, AnalysisSpec):
                 spec = spec.model_dump(exclude_none=True)
                 # A null column is meaningful for a row count.
@@ -752,7 +762,18 @@ class AgentSession:
                     metric.setdefault("column", None)
             output = analyze_csv(self.snapshot, spec)
             output = self._register_data(output, "aggregate")
+            output = result_page(output)
             self.harness.record_execution(output, "analyze_csv")
+            return output
+
+        @tool("read_analysis_rows", args_schema=_PageArguments)
+        def bound_read_rows(data_id: str, offset: int = 0, limit: int = 500) -> dict:
+            """Read another page of an actual registered result, using page.next_offset. Does not change the calculation, result size or exported CSV. Never infer whole-table statistics from a partial page."""
+            try:
+                output = result_page(self._get_plot_data(data_id), offset, limit)
+            except ValueError:
+                output = {"status": "error", "error": {"code": "invalid_result_page", "message": "Use a registered data_id and a valid row offset."}}
+            self.harness.record_execution(output, "read_analysis_rows")
             return output
 
         @tool("prepare_distribution", args_schema=_DistributionArguments)
@@ -781,6 +802,11 @@ class AgentSession:
             finally:
                 with self._registry_lock:
                     self._pending_chart_assets.pop(cid, None)
+            # Full child evidence and chart tables remain in visualization_runs
+            # and host assets; do not inject them again into the primary model.
+            output = {key: value for key, value in output.items()
+                      if key not in {"trace", "execution_ledger", "charts"}} | {
+                          "charts": [chart_receipt(chart) for chart in output.get("charts", [])]}
             self.harness.record_execution(output, "delegate_visualization")
             return output
 
@@ -839,7 +865,7 @@ class AgentSession:
         backend = StateBackend()
         self.graph = create_deep_agent(
             model=model,
-            tools=[bound_profile, bound_analyze, bound_ask, bound_distribution, bound_delegate]
+            tools=[bound_profile, bound_analyze, bound_ask, bound_distribution, bound_delegate, bound_read_rows]
             + ([bound_search] if self.material_paths else []),
             system_prompt=_SYSTEM_PROMPT
             + (
@@ -860,7 +886,7 @@ class AgentSession:
             ],
         )
 
-    def invoke(self, task: str) -> dict:
+    def invoke(self, task: str, *, on_event=None) -> dict:
         with self._operation_lock:
             if self.status == "awaiting_input":
                 raise ValueError(
@@ -878,7 +904,7 @@ class AgentSession:
             self.status = "running"
             if not isinstance(task, str) or not task.strip():
                 return self._report({}, "invalid_task")
-            return self._execute({"messages": [{"role": "user", "content": task}]})
+            return self._execute({"messages": [{"role": "user", "content": task}]}, on_event=on_event)
 
     def _register_data(self, result, kind):
         if result.get("status") != "completed":
@@ -931,14 +957,14 @@ class AgentSession:
                          chart_assets=self.chart_assets)
         return json.loads(saved.read_text(encoding="utf-8"))
 
-    def resume(self, user_reply: str) -> dict:
+    def resume(self, user_reply: str, *, on_event=None) -> dict:
         with self._operation_lock:
             if self.status != "awaiting_input":
                 raise ValueError("This session is not awaiting input.")
             if not isinstance(user_reply, str) or not user_reply.strip():
                 raise ValueError("Provide a nonempty reply.")
             self.replies.append(user_reply)
-            return self._execute(Command(resume=user_reply))
+            return self._execute(Command(resume=user_reply), on_event=on_event)
 
     def cancel(self) -> dict:
         with self._operation_lock:
@@ -953,18 +979,26 @@ class AgentSession:
             self._last = report
             return report
 
-    def _execute(self, command):
+    def _execute(self, command, *, on_event=None):
         try:
-            result = self.graph.invoke(command, config=self._graph_config)
-            return self._report(result)
+            if on_event is None:
+                result = self.graph.invoke(command, config=self._graph_config)
+            else:
+                from labweaver.runtime.streaming import stream_execution
+                result = stream_execution(self.graph, command, self._graph_config, on_event)
+            report = self._report(result)
         except _IntakeRejected as exc:
-            return self._report({}, exc.code)
+            report = self._report({}, exc.code)
         except Exception as exc:
             # GraphInterrupt is a BaseException; LangGraph must handle it.
             diagnostics = {"exception_type": type(exc).__name__}
             if type(getattr(exc, "status_code", None)) is int:
                 diagnostics["http_status"] = exc.status_code
-            return self._report({}, "agent_failed", diagnostics)
+            report = self._report({}, "agent_failed", diagnostics)
+        if on_event is not None:
+            on_event({"type": "validated", "status": report["status"],
+                      "answer": report.get("answer_text", "")})
+        return report
 
     def _precondition(self):
         """Require requested evidence and chart execution before a final answer."""
@@ -1024,11 +1058,18 @@ class AgentSession:
         error = self.harness.failure or error or evidence_error
         if not error and not self.harness.profile_ready and not pending:
             error = "missing_tool_call"
-        analyses = [
-            v["result"]
-            for v in ledger
-            if v["name"] in {"analyze_csv", "prepare_distribution"} and v["result"].get("status") == "completed"
-        ]
+        analyses = []
+        for entry in ledger:
+            if entry["name"] not in {"analyze_csv", "prepare_distribution"} or entry["result"].get("status") != "completed":
+                continue
+            view = entry["result"]
+            data = self._data_registry.get(view.get("data_id"))
+            if data is None or data["source"] != view.get("source") or data["task_id"] != self.task_id:
+                error = error or "unmatched_analysis_evidence"
+            else:
+                # Evidence records exactly the message received by the model;
+                # reports/exports use the full host calculation, never its page.
+                analyses.append(copy.deepcopy(data))
         delegations = [v["result"] for v in ledger if v["name"] == "delegate_visualization"]
         charts = [copy.deepcopy(asset["metadata"]) for asset in self.chart_assets.values()]
         known_ids = {v.get("data_id") for v in analyses}
@@ -1045,7 +1086,7 @@ class AgentSession:
         searches = [v["result"] for v in ledger if v["name"] == "search_materials"]
         chunks = list(self._all_chunks.values())
         raw = _message_content(messages[-1]) if messages else ""
-        final, reason, citations, kind = "", "", [], None
+        final, reason, citations, kind, answer_text = "", "", [], None, ""
         if not pending and not error:
             if (
                 not messages
@@ -1097,6 +1138,7 @@ class AgentSession:
             if not error and (searches or re.search(r"\[D\d+-C\d+\]", final)):
                 citations, error = _validate_citations(final, chunks)
             if not error:
+                answer_text = final
                 for number, analysis in enumerate(analyses, 1):
                     final += (
                         f"\n\n### 统计结果 {number}（由实际工具结果生成）\n"
@@ -1169,6 +1211,7 @@ class AgentSession:
             "citation_chunks": chunks,
             "citations": citations,
             "final_answer": final,
+            "answer_text": answer_text,
             "question": question,
             "replies": list(self.replies),
             "messages": [

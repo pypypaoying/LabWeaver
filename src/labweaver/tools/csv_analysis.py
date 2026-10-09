@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from .csv_profile import CsvSnapshot
 
 
-MAX_RESULT_ROWS = 100
 _NUMBER = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\Z")
 _FILTER_OPERATIONS = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "is_missing", "not_missing"}
 _AGGREGATES = {"count", "sum", "mean", "min", "max"}
@@ -161,10 +160,10 @@ def _validate_spec(spec: Any, width: int) -> dict[str, Any]:
         first = normalized["metrics"][0]
         normalized["order_by"] = [{"field": first["alias"], "direction": "asc" if first["op"] == "min" else "desc"}]
 
-    top_k = spec.get("top_k", MAX_RESULT_ROWS)
-    if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1 or top_k > 1_000_000:
-        raise _AnalysisError("invalid_spec", "top_k must be an integer between 1 and 1000000; output is capped at 100.")
-    normalized["top_k"] = min(top_k, MAX_RESULT_ROWS)
+    top_k = spec.get("top_k")
+    if top_k is not None and (type(top_k) is not int or top_k < 1):
+        raise _AnalysisError("invalid_spec", "top_k must be null (all rows) or a positive integer.")
+    normalized["top_k"] = top_k
     normalized["requested_top_k"] = top_k
     return normalized
 
@@ -243,7 +242,7 @@ def analyze_csv(snapshot: CsvSnapshot, spec: dict[str, Any]) -> dict[str, Any]:
     names and leading zeros. Blank group cells share a JSON-null group. Numeric
     aggregates exclude missing cells and reject remaining dirty/nonfinite data.
     Filters use AND; string equality is exact, numeric equality is numeric.
-    Returned rows are deterministic and capped at 100, with truncation recorded.
+    Return every group unless top_k explicitly requests a ranking subset.
     """
     source = dict(snapshot.source)
     try:
@@ -307,9 +306,9 @@ def analyze_csv(snapshot: CsvSnapshot, spec: dict[str, Any]) -> dict[str, Any]:
             "status": "completed", "source": source, "spec": normalized,
             "input_row_count": len(snapshot.rows), "filtered_row_count": matched,
             "group_count": total_groups, "returned_row_count": len(returned_rows),
-            "requested_top_k": requested_top_k, "result_limit": MAX_RESULT_ROWS,
+            "requested_top_k": requested_top_k, "result_limit": None,
             "truncated": total_groups > len(returned_rows),
-            "limit_applied": requested_top_k > MAX_RESULT_ROWS,
+            "limit_applied": False,
             "columns": group_fields + [metric["alias"] for metric in metrics],
             "group_columns": [{"field": field, "position": position, "name": snapshot.headers[position - 1]}
                               for field, position in zip(group_fields, groups)],

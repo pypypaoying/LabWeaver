@@ -41,6 +41,7 @@ class OfflineIntakeModel(BaseChatModel):
             "ask_user",
             "prepare_distribution",
             "delegate_visualization",
+            "read_analysis_rows",
         }:
             raise ValueError("Unexpected tool exposed to offline model")
         self._bound_tool_sets.append(names)
@@ -134,7 +135,7 @@ class OfflineIntakeModel(BaseChatModel):
                 groups = [column for column in profile["columns"] if column["position"] != value_column["position"]]
                 group = groups[0]
                 operation = "mean" if re.search(r"均值|平均|mean|average", task, re.I) else "sum"
-                spec = {"filters": [], "group_by": [group["position"]], "metrics": [{"op": operation, "column": value_column["position"], "alias": "value"}], "order_by": [{"field": "value", "direction": "desc"}], "top_k": 100}
+                spec = {"filters": [], "group_by": [group["position"]], "metrics": [{"op": operation, "column": value_column["position"], "alias": "value"}], "order_by": [{"field": "value", "direction": "desc"}], "top_k": None}
                 return self._call("analyze_csv", {"spec": spec})
             if not delegations:
                 data = (distributions or analyses)[-1]

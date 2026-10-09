@@ -324,7 +324,7 @@ def test_material_instructions_cannot_expand_authorization(csv_path, material_pa
     assert report["status"] == "error"
     assert report["error"]["code"] == "tool_not_allowed"
     assert [v["name"] for v in report["execution_ledger"]] == ["profile_csv", "search_materials"]
-    assert all(set(names) <= {"profile_csv", "analyze_csv", "ask_user", "search_materials", "prepare_distribution", "delegate_visualization"} for names in model.bound_tool_sets)
+    assert all(set(names) <= {"profile_csv", "analyze_csv", "ask_user", "search_materials", "prepare_distribution", "delegate_visualization", "read_analysis_rows"} for names in model.bound_tool_sets)
     assert _hashes([csv_path, material_path]) == before
 
 

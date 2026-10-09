@@ -62,7 +62,9 @@ def test_interactive_entry_accepts_answers_and_followups_and_saves_real_tables(t
     assert "2024 年" in output
     assert len(prompts) == 6
     assert all("编码" not in prompt and "分隔符" not in prompt for prompt in prompts)
-    session.resume.assert_called_once_with("全部年份、按 Total 累计、保留原始 NOC")
+    assert session.resume.call_count == 1
+    assert session.resume.call_args.args == ("全部年份、按 Total 累计、保留原始 NOC",)
+    assert callable(session.resume.call_args.kwargs["on_event"])
     assert [call.args[0] for call in session.invoke.call_args_list] == ["统计前五", "改为 2024 年"]
     config = session_factory.call_args.args[0]
     assert config.csv_path == data and config.material_paths == ()

@@ -138,8 +138,8 @@ def _table(data: dict, spec: PlotSpec) -> tuple[str, str, list[dict], list, list
     columns, rows = data.get("columns"), data.get("rows")
     if not isinstance(columns, list) or not isinstance(rows, list) or not rows:
         raise PlotError("empty_result", "A chart requires a nonempty registered result table.")
-    if len(rows) > 100 or any(not isinstance(row, dict) for row in rows):
-        raise PlotError("invalid_data", "The registered result table is malformed or exceeds 100 rows.")
+    if any(not isinstance(row, dict) for row in rows):
+        raise PlotError("invalid_data", "The registered result table is malformed.")
     if data.get("kind") != "aggregate":
         raise PlotError("invalid_data", "Bar and line charts require a registered aggregate result.")
     groups = [item["field"] for item in data.get("group_columns", [])]
@@ -288,15 +288,18 @@ def render_chart(data: dict[str, Any], spec: dict[str, Any], *, font_path: str |
                 axes = figure.subplots()
                 if request.chart_type == "bar":
                     locations = list(range(len(xs)))
+                    # Keep every bar; thin only tick labels on large tables.
+                    tick_positions = locations[::max(1, math.ceil(len(xs) / 20))]
+                    tick_labels = [xs[i] for i in tick_positions]
                     if request.orientation == "horizontal":
                         axes.barh(locations, ys, color="#4472C4")
-                        axes.set_yticks(locations, xs)
+                        axes.set_yticks(tick_positions, tick_labels)
                         axes.invert_yaxis()
                         axes.set_xlabel(y_label, fontproperties=font)
                         axes.set_ylabel(x_label, fontproperties=font)
                     else:
                         axes.bar(locations, ys, color="#4472C4")
-                        axes.set_xticks(locations, xs, rotation=30, ha="right")
+                        axes.set_xticks(tick_positions, tick_labels, rotation=30, ha="right")
                         axes.set_xlabel(x_label, fontproperties=font)
                         axes.set_ylabel(y_label, fontproperties=font)
                 elif request.chart_type == "line":

@@ -18,7 +18,7 @@ def snapshot(headers, rows):
                            headers=tuple(headers), rows=tuple(tuple(row) for row in rows), profile={})
 
 
-def spec(*, groups=None, metrics=None, filters=None, order=None, top_k=100):
+def spec(*, groups=None, metrics=None, filters=None, order=None, top_k=None):
     return {"group_by": [] if groups is None else groups,
             "metrics": [{"op": "count", "column": None, "alias": "rows"}] if metrics is None else metrics,
             "filters": [] if filters is None else filters,
@@ -182,15 +182,27 @@ def test_no_matching_rows_and_header_only_inputs_return_explicit_empty_statistic
         assert result(data, request)["rows"] == []
 
 
-def test_result_size_cap_is_explicit_and_source_metadata_is_copied():
-    data = snapshot(["group"], [[f"{index:03}"] for index in range(120)])
+def test_requested_large_top_k_is_not_capped_and_source_metadata_is_copied():
+    data = snapshot(["group"], [[f"{index:03}"] for index in range(280)])
     output = result(data, spec(groups=[1], top_k=500))
-    assert output["returned_row_count"] == 100
+    assert output["returned_row_count"] == 280
     assert output["requested_top_k"] == 500
-    assert output["spec"]["top_k"] == 100
-    assert output["limit_applied"] and output["truncated"]
+    assert output["spec"]["top_k"] == 500
+    assert not output["limit_applied"] and not output["truncated"]
+    assert output["result_limit"] is None
     output["source"]["name"] = "changed"
     assert data.source["name"] == "synthetic.csv"
+
+
+@pytest.mark.parametrize("top_k", [None, 1_000_001])
+def test_all_groups_are_retained_without_an_artificial_cap(top_k):
+    data = snapshot(["group"], [[f"{index:04}"] for index in range(1500)])
+    request = spec(groups=[1], top_k=top_k)
+    if top_k is None:
+        request.pop("top_k")
+    output = result(data, request)
+    assert output["returned_row_count"] == 1500
+    assert not output["truncated"]
 
 
 @pytest.mark.parametrize("invalid_request", [

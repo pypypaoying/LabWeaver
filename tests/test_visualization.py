@@ -18,7 +18,7 @@ from labweaver.tools.distribution import prepare_distribution
 from labweaver.tools.visualization import PlotSpec, render_chart
 
 
-def aggregate(rows, *, top_k=100):
+def aggregate(rows, *, top_k=None):
     snapshot = SimpleNamespace(source={"name": "synthetic.csv", "sha256": "a" * 64},
                                headers=("group", "number"), rows=tuple(tuple(row) for row in rows))
     result = analyze_csv(snapshot, {"group_by": [1], "metrics": [{"op": "sum", "column": 2, "alias": "total"}],
@@ -75,6 +75,16 @@ def test_date_line_sorts_months_and_keeps_real_metric_values():
     result = render_chart(data, {"chart_type": "line"})
     for month in ("2024-01", "2024-02", "2024-03"):
         assert result["svg"].decode("utf-8").count(f"<!-- {month} -->") == 1
+
+
+def test_bar_preserves_all_280_groups_in_image_and_export():
+    data = aggregate([[f"category-{i:03}", str(i)] for i in range(280)])
+    asset = render_chart(data, {"chart_type": "bar"})
+    metadata = assert_asset(asset)
+    assert len(metadata["rows"]) == 280 and not metadata["truncated"]
+    assert sum(row["total"] for row in metadata["rows"]) == sum(range(280))
+    assert len(list(csv.DictReader(io.StringIO(asset["data_csv"])))) == 280
+    assert b'patch_282' in asset["svg"]  # background + 280 bars; thinning labels doesn't remove bars
 
 
 def test_numeric_line_sorts_raw_numeric_labels():

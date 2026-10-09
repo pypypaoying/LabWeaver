@@ -71,7 +71,7 @@ def _markdown_brief(report: dict) -> str:
         f"任务：{report.get('task', '')}", "",
         f"数据文件：\x60{source.get('name', '')}\x60", "",
         f"数据 SHA-256：\x60{source.get('sha256', '')}\x60", "",
-        "## Agent 回答", "", str(report.get("final_answer", "")).strip(), "",
+        "## Agent 回答", "", str(report.get("answer_text", report.get("final_answer", ""))).strip(), "",
     ]
     for number, result in enumerate(_result_tables(report), 1):
         columns = result["columns"]
@@ -84,7 +84,7 @@ def _markdown_brief(report: dict) -> str:
             lines.append("| " + " | ".join(_markdown_cell(row[column]) for column in columns) + " |")
         lines.extend(["", "统计请求：", "", "\x60\x60\x60json", json.dumps(result.get("spec", {}), ensure_ascii=False, indent=2, allow_nan=False), "\x60\x60\x60", ""])
         if result.get("truncated"):
-            lines.extend(["结果已按工具规定截断；完整分组数量见 JSON。", ""])
+            lines.extend([f"本表按请求的 top_k={result['spec']['top_k']} 选取；分组总数见 JSON。", ""])
     if report.get("charts"):
         lines.extend(["## 数据可视化", ""])
         for chart in report["charts"]:

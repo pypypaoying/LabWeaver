@@ -122,6 +122,7 @@ def test_medal_clarify_execute_followup_and_budget():
         "ask_user": 1,
         "prepare_distribution": 0,
         "delegate_visualization": 0,
+        "read_analysis_rows": 0,
     }
     assert r["model_calls"] == 2
     task_id = r["task_id"]

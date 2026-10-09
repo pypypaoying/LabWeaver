@@ -83,7 +83,7 @@ def _interactive_config(config):
     return replace(config, csv_path=csv_path, material_paths=tuple(materials), task=task, task_file=None)
 
 
-def _show_report(report: dict, saved: Path) -> None:
+def _show_report(report: dict, saved: Path, *, streamed_answer: str = "") -> None:
     print(f"\n运行状态：{report['status']}")
     print(f"模型调用：{report.get('model_calls', 0)} 次；实际工具执行：{len(report.get('execution_ledger', []))} 次")
     print(f"可视化模型调用：{report.get('visualization_model_calls', 0)} 次；"
@@ -105,8 +105,17 @@ def _show_report(report: dict, saved: Path) -> None:
     if report.get("error"):
         error = report["error"]
         print(f"失败原因：{error['code']} — {error['message']}")
-    if report.get("final_answer"):
-        print("\nAgent 回答：\n" + report["final_answer"])
+    answer = report.get("answer_text", report.get("final_answer", ""))
+    if answer and answer != streamed_answer:
+        print("\nAgent 回答：\n" + answer)
+    if "answer_text" in report:
+        from labweaver.agent import _table_markdown
+        for number, result in enumerate(report.get("analysis_results", []), 1):
+            rows = result["rows"]
+            print(f"\n统计结果 {number}：共 {len(rows)} 项" + ("（终端预览前 10 项，完整表见结果 CSV）" if len(rows) > 10 else ""))
+            print(_table_markdown({**result, "rows": rows[:10]}))
+            if result.get("truncated"):
+                print(f"按 top_k={result['spec']['top_k']} 选取，原始共 {result['group_count']} 组。")
     if report.get("status") == "awaiting_input":
         question = report.get("question", "")
         if isinstance(question, dict):
@@ -125,14 +134,16 @@ def _show_report(report: dict, saved: Path) -> None:
 def _conversation(config) -> int:
     """Resume interrupts and accept follow-ups on the same in-memory graph."""
     from labweaver.runtime.intake import create_runtime_session, resolve_task, save_session_report
+    from labweaver.runtime.streaming import ConsoleStream
 
     session = create_runtime_session(config)
     exit_words = {"退出", "取消", ":quit", "quit", "exit", "q"}
     try:
-        report = session.invoke(resolve_task(config))
+        stream = ConsoleStream()
+        report = session.invoke(resolve_task(config), on_event=stream)
         while True:
             report, saved = save_session_report(report, config, session=session)
-            _show_report(report, saved)
+            _show_report(report, saved, streamed_answer=stream.validated_answer)
             if report.get("status") == "cancelled":
                 return 0
             if report.get("status") == "error":
@@ -147,12 +158,14 @@ def _conversation(config) -> int:
                 if not reply:
                     print("请回答当前问题，或输入退出。")
                     continue
-                report = session.resume(reply)
+                stream = ConsoleStream()
+                report = session.resume(reply, on_event=stream)
             else:
                 follow_up = input("\n继续追问（回车或输入退出结束）：").strip()
                 if not follow_up or follow_up.lower() in exit_words:
                     return 0 if report.get("status") == "completed" else 1
-                report = session.invoke(_task_text(follow_up))
+                stream = ConsoleStream()
+                report = session.invoke(_task_text(follow_up), on_event=stream)
     except (EOFError, KeyboardInterrupt):
         cancelled, saved = save_session_report(session.cancel(), config, session=session)
         _show_report(cancelled, saved)

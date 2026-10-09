@@ -57,10 +57,10 @@ class AnalysisSpec(BaseModel):
     )
     metrics: list[MetricSpec] = Field(min_length=1, max_length=20)
     order_by: list[OrderSpec]
-    top_k: StrictInt = Field(
+    top_k: StrictInt | None = Field(
+        default=None,
         ge=1,
-        le=1_000_000,
-        description="Return exactly this many rows when available; output capped at 100",
+        description="Use null or omit to return ALL groups. Set a positive integer only when the user requests a top-N subset; no automatic row cap.",
     )
 
 

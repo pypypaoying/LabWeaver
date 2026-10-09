@@ -85,7 +85,7 @@ def _check_tool_evidence(report: dict, model) -> None:
         _check(json.loads(result["content"]) == execution["result"], "ToolMessage equals execution result")
     _check({entry["tool_call_id"] for entry in ledger} <= set(model.seen_tool_results),
            "Offline model consumed actual ToolMessages")
-    _check(all(set(tools) <= {"profile_csv", "analyze_csv", "search_materials", "ask_user", "prepare_distribution", "delegate_visualization"}
+    _check(all(set(tools) <= {"profile_csv", "analyze_csv", "search_materials", "ask_user", "prepare_distribution", "delegate_visualization", "read_analysis_rows"}
                for tools in model.bound_tool_sets), "Only allowed tools exposed")
 
 

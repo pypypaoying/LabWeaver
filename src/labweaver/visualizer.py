@@ -338,7 +338,8 @@ class VisualizationRunner:
                         # bytes, objects and non-finite numeric values.
                         json.dumps(data, ensure_ascii=False, allow_nan=False)
                         harness.data = data
-                        output = {"status": "completed", "data": data}
+                        from labweaver.tools.result_pages import result_page
+                        output = {"status": "completed", "data": result_page(data)}
                     except Exception as exc:
                         code = str(exc) if isinstance(exc, _Rejected) else "plot_data_unavailable"
                         output = _error(code)
@@ -357,7 +358,8 @@ class VisualizationRunner:
                         else:
                             self._validate_asset(asset, harness.data, parsed.model_dump())
                             harness.staged.append(asset)
-                            output = {"status": "completed", "chart": copy.deepcopy(asset["metadata"])}
+                            from labweaver.tools.result_pages import chart_receipt
+                            output = {"status": "completed", "chart": chart_receipt(asset["metadata"])}
                     except _Rejected as exc:
                         harness.failure = str(exc)
                         output = _error(str(exc))
