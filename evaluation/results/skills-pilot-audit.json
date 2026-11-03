@@ -1,0 +1,118 @@
+{
+  "final_contract": {
+    "common_evaluator_sha256": "72dbd8cb8dac75b249f4caf8fd23b2e68b03aec01adf0af41dc2be3044721297",
+    "evaluator_sha256": "66209298b655dce8f2021b35eb7d1312b4fa8715e1e068f2397481d2ac4d52fb",
+    "image": {
+      "id": "sha256:206b28a7063a3da884cb03b234c995f698f65319fcff03bcfb7b12e510836a92",
+      "tag": "labweaver-python:0.3.0"
+    },
+    "implementation_sha256": "fd967b1b19c5249a4d572bf270f1bc20f2e866022eadad05ddbae9f6dd254945",
+    "inputs_sha256": "a99e23a5dbac55b28f1ddbe4978b91e0e09b21cc74ea90df0d1ab15a42be9505",
+    "measurements_sha256": "9f0f5b40238d487a5a2591c90d62491d676704bf67a3721f25b96a947b7c1ee1",
+    "model": {
+      "base_url": "https://api.deepseek.com",
+      "model_id": "deepseek-flash",
+      "timeout": 30.0
+    },
+    "model_options": {
+      "analysis_max_tokens": 12288,
+      "main_max_tokens": 4096,
+      "max_retries": 0,
+      "temperature": 0
+    },
+    "suite_sha256": "d9e4c659a296d95dfec6919456d5bec18bd5eab6a25576340ac74d7bcb4c6c1b",
+    "version": 1
+  },
+  "initial_contract": {
+    "common_evaluator_sha256": "72dbd8cb8dac75b249f4caf8fd23b2e68b03aec01adf0af41dc2be3044721297",
+    "evaluator_sha256": "66209298b655dce8f2021b35eb7d1312b4fa8715e1e068f2397481d2ac4d52fb",
+    "image": {
+      "id": "sha256:206b28a7063a3da884cb03b234c995f698f65319fcff03bcfb7b12e510836a92",
+      "tag": "labweaver-python:0.3.0"
+    },
+    "implementation_sha256": "a06b36fee40df2aadca0992cb8b476423af0032f491bfca1e193a21a85dcb1e4",
+    "inputs_sha256": "a99e23a5dbac55b28f1ddbe4978b91e0e09b21cc74ea90df0d1ab15a42be9505",
+    "measurements_sha256": "9f0f5b40238d487a5a2591c90d62491d676704bf67a3721f25b96a947b7c1ee1",
+    "model": {
+      "base_url": "https://api.deepseek.com",
+      "model_id": "deepseek-flash",
+      "timeout": 30.0
+    },
+    "model_options": {
+      "analysis_max_tokens": 12288,
+      "main_max_tokens": 4096,
+      "max_retries": 0,
+      "temperature": 0
+    },
+    "suite_sha256": "d9e4c659a296d95dfec6919456d5bec18bd5eab6a25576340ac74d7bcb4c6c1b",
+    "version": 1
+  },
+  "current_package_matches_measured_snapshot": true,
+  "skill_manifest": {
+    "version": 1,
+    "skills": [
+      {
+        "id": "data-exploration",
+        "name": "数据探索",
+        "description": "理解单表的记录粒度、字段角色、缺失与重复，并按用户要求探索数据质量；纯行列概览通常不需要额外计算。",
+        "sha256": "420f2a24c6813a306fe449c350b55498b4798bb89355bd5398ac584ce979e335",
+        "byte_size": 2565,
+        "source": {
+          "repository": "anthropics/knowledge-work-plugins",
+          "commit": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+          "path": "data/skills/explore-data/SKILL.md",
+          "url": "https://github.com/anthropics/knowledge-work-plugins/blob/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/data/skills/explore-data/SKILL.md",
+          "license": "Apache-2.0",
+          "adaptation": "Chinese abridgement adapted to AnaliyMaster snapshot, artifact and verification contracts"
+        }
+      },
+      {
+        "id": "statistical-analysis",
+        "name": "统计分析",
+        "description": "确定汇总粒度、加权口径、分布与时间比较方法，处理零分母、缺失和统计结论边界；用于需要真实统计计算的任务。",
+        "sha256": "1699020174b93d81e6ccd49ab32808996e4367cd8bc17dc3f3ba87da4206ef6a",
+        "byte_size": 3243,
+        "source": {
+          "repository": "anthropics/knowledge-work-plugins",
+          "commit": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+          "path": "data/skills/statistical-analysis/SKILL.md",
+          "url": "https://github.com/anthropics/knowledge-work-plugins/blob/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/data/skills/statistical-analysis/SKILL.md",
+          "license": "Apache-2.0",
+          "adaptation": "Chinese abridgement adapted to AnaliyMaster snapshot, artifact and verification contracts"
+        }
+      },
+      {
+        "id": "data-visualization",
+        "name": "数据可视化",
+        "description": "根据比较、时间、分布或相关任务选择图型，用真实绘图数据和 Matplotlib 生成清楚的 PNG/SVG；不用于纯表格请求。",
+        "sha256": "1e5e8c935ba952b65ca059b839a9eafa2ca7e95189d1fd31a30267176fda53b1",
+        "byte_size": 2747,
+        "source": {
+          "repository": "anthropics/knowledge-work-plugins",
+          "commit": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+          "path": "data/skills/data-visualization/SKILL.md",
+          "url": "https://github.com/anthropics/knowledge-work-plugins/blob/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/data/skills/data-visualization/SKILL.md",
+          "license": "Apache-2.0",
+          "adaptation": "Chinese abridgement adapted to AnaliyMaster snapshot, artifact and verification contracts"
+        }
+      },
+      {
+        "id": "analysis-validation",
+        "name": "分析交付检查",
+        "description": "交付前对照原始要求、指标口径、真实成果和资料出处，核对报告中的事实、限制与专业呈现；适合复杂分析的收尾检查。",
+        "sha256": "7f14a46155df45c7f80effbd6e3f6bcb619a51fc1b6fabb0f1837ccabcccbfef",
+        "byte_size": 3037,
+        "source": {
+          "repository": "anthropics/knowledge-work-plugins",
+          "commit": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+          "path": "data/skills/validate-data/SKILL.md",
+          "url": "https://github.com/anthropics/knowledge-work-plugins/blob/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/data/skills/validate-data/SKILL.md",
+          "license": "Apache-2.0",
+          "adaptation": "Chinese abridgement adapted to AnaliyMaster snapshot, artifact and verification contracts"
+        }
+      }
+    ]
+  },
+  "raw_records_published": false,
+  "scope": "Core source/resources frozen; frontend progress display verified separately using real-record replay. All generated scripts, logs, screenshots and raw records remain ignored."
+}

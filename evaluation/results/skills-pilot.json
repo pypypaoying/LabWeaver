@@ -1,0 +1,137 @@
+{
+  "arms": {
+    "off": {
+      "attained": 21,
+      "code_failure_trials": 9,
+      "first_attempt_attained": 0,
+      "known_total_tokens": 1029011,
+      "median_seconds": 21.9295,
+      "missing": 0,
+      "planned": 24,
+      "recorded": 24,
+      "repaired_and_attained": 9,
+      "skill_load_count": 0,
+      "trials_loading_skills": 0,
+      "unknown_usage_calls": 0,
+      "usage_unmeasured_trials": 0
+    },
+    "on": {
+      "attained": 20,
+      "code_failure_trials": 9,
+      "first_attempt_attained": 1,
+      "known_total_tokens": 1444333,
+      "median_seconds": 22.531,
+      "missing": 0,
+      "planned": 24,
+      "recorded": 24,
+      "repaired_and_attained": 7,
+      "skill_load_count": 27,
+      "trials_loading_skills": 17,
+      "unknown_usage_calls": 0,
+      "usage_unmeasured_trials": 0
+    }
+  },
+  "boundary": "Small paired synthetic pilot; three repeats are correlated. Skills loading and code exit zero are not task success. No universal improvement or statistical significance claimed.",
+  "by_case": {
+    "S1": {
+      "off": {
+        "attained": 3,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 3,
+        "recorded": 3
+      }
+    },
+    "S2": {
+      "off": {
+        "attained": 3,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 3,
+        "recorded": 3
+      }
+    },
+    "S3": {
+      "off": {
+        "attained": 3,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 3,
+        "recorded": 3
+      }
+    },
+    "S4": {
+      "off": {
+        "attained": 3,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 3,
+        "recorded": 3
+      }
+    },
+    "S5": {
+      "off": {
+        "attained": 3,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 3,
+        "recorded": 3
+      }
+    },
+    "S6": {
+      "off": {
+        "attained": 3,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 3,
+        "recorded": 3
+      }
+    },
+    "S7": {
+      "off": {
+        "attained": 3,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 1,
+        "recorded": 3
+      }
+    },
+    "S8": {
+      "off": {
+        "attained": 0,
+        "recorded": 3
+      },
+      "on": {
+        "attained": 1,
+        "recorded": 3
+      }
+    }
+  },
+  "complete": true,
+  "contract_sha256": "c5c0c217fba7339a528d89fac07791d55076c8eca83374d3c14af98c442781fa",
+  "paired": {
+    "baseline_only_passed": 2,
+    "both_failed": 2,
+    "both_passed": 19,
+    "incomplete_pairs": 0,
+    "skills_only_passed": 1
+  },
+  "version": 1,
+  "decision": "Keep skills_enabled=false by default. This pilot does not demonstrate improved task attainment.",
+  "token_change_percent": 40.36127893676549,
+  "development_runs": {
+    "stopped_initial_trials": 14,
+    "stopped_initial_skill_reads": 0,
+    "explicit_request_demonstrations": 1,
+    "explicit_skill_reads": 2,
+    "explicit_numeric_oracle_passed": true,
+    "not_in_paired_denominator": true
+  }
+}

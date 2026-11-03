@@ -129,3 +129,22 @@ print(report["status"], report["result_csv_paths"])
 任务完成后展开“任务约定”和“核验覆盖”：前者记录实际使用的目标、特征、范围与默认值；后者区分已通过、失败和未检查的项目，并可查看原始证据。旧记录没有新证据时显示未核验。`completed` 表示登记成果和当前必需检查通过，不代表训练全过程没有泄漏或所有解释均正确。
 
 v2评测已达到数值门槛，仍有未达成案例，详见[v2完整结果](../evaluation/results/v2.md)和[设计边界](reliability.md)。测试预测表使用稳定源记录 ID；完整结果、代码和报告仍可从原下载入口获取。不要用图表或少量预览代替完整结果核对。
+
+## 按需分析 Skills
+
+项目内含四个经过适配的只读技能：数据探索、统计分析、可视化、交付检查。它们提供专业方法参考，不直接执行统计。主 Agent 在完成 CSV 概览后、代码 Agent 在获授权委派后，可以自行选择 `read_skill(skill_id)`。正文只在实际读取时进入模型上下文；简单概览无需加载。
+
+当前作为可选能力，默认关闭。在项目 `labweaver.toml` 或被忽略的 `labweaver.local.toml` 的 `[intake]` 中设置：
+
+```toml
+[intake]
+skills_enabled = true
+```
+
+修改后重启应用，再发起任务；VS Code 入口和 CLI 也使用此配置。直接调用 Python 时使用 `create_session(csv_path, model, skills_enabled=True)`；设为 `False` 关闭。模型配置和沙箱镜像沿用现有值，安装时不需要增加新的分析依赖。
+
+运行过程中“已读取分析技能”表示真实工具读取。报告 JSON 的 `skills.enabled` 表示开关，`skills.loads` 记录实际角色、调用ID、技能ID和内容哈希；开启但未读取会保留空列表。加载技能不等于完成分析，结果仍须来自 Docker 和原有成果/核验流程。技能不能作为用户资料的引用出处。
+
+技能来自固定版本的公开 Anthropic Data Analyst Plugin，已翻译、缩写并适配字段ID、现有库和 `emit_*` 协议。许可证与修改归属随 Python 包保存于 `src/labweaver/skills/`；这些说明文件不进入模型上下文。没有直接安装 Claude 插件或更换模型。
+
+受控试验：`python evaluation/skills_pilot.py --run --output .cache/evaluation/skills-pilot-new` 执行8个独立合成任务、开关各3次共48次，须先启动Docker并配置后端 `LLM_*` 或被引用的 `.env`；脚本不自动采用页面当前选择的模型。用 `--report --output 同一目录` 查看汇总。复现新版本请使用新的空目录；同一目录仅恢复原快照、跳过已有试次，保留全部失败。它不是离线演示，不能仅凭技能被读取就断言完成率提高。

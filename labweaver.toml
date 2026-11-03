@@ -20,3 +20,5 @@ materials = [
 execution_image = "labweaver-python:0.3.0"
 execution_timeout = 60
 analysis_max_tokens = 12288
+# Reviewed analysis guidance; opt in while the controlled pilot is evaluated.
+skills_enabled = false

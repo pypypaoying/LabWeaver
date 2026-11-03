@@ -59,6 +59,7 @@ def create_runtime_session(config: IntakeConfig):
         delimiter=config.delimiter,
         sample_rows=config.sample_rows,
         analysis_model=analysis_model,
+        skills_enabled=config.skills_enabled,
         execution_config=ExecutionConfig(
             image=config.execution_image, timeout=config.execution_timeout
         ),

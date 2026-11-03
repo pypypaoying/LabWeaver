@@ -13,12 +13,18 @@ def test_batch_resume_uses_frozen_source_and_rejects_tampering(tmp_path):
     package=tmp_path/'src/labweaver';package.mkdir(parents=True)
     (package/'__init__.py').write_text('VERSION=1',encoding='utf-8')
     (package/'.env').write_text('PRIVATE_SENTINEL',encoding='utf-8')
+    skill=package/'skills/data-exploration/SKILL.md'
+    skill.parent.mkdir(parents=True)
+    skill.write_text('Reviewed original guidance',encoding='utf-8')
     output=tmp_path/'run'
     frozen=runner.freeze_source(package.parent,output)
     (package/'__init__.py').write_text('VERSION=2',encoding='utf-8')
     assert runner.freeze_source(package.parent,output)==frozen
     assert (frozen/'labweaver/__init__.py').read_text()=='VERSION=1'
     assert not (frozen/'labweaver/.env').exists()
+    assert (frozen/'labweaver/skills/data-exploration/SKILL.md').read_text()=='Reviewed original guidance'
+    skill.write_text('Changed development guidance',encoding='utf-8')
+    assert runner.freeze_source(package.parent,output)==frozen
     (frozen/'labweaver/__init__.py').write_text('VERSION=3',encoding='utf-8')
     with pytest.raises(ValueError,match='snapshot changed'):
         runner.freeze_source(package.parent,output)

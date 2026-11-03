@@ -23,6 +23,7 @@ class WebSettings:
     image: str = "labweaver-python:0.3.0"
     execution_timeout: int = 60
     analysis_max_tokens: int = 12288
+    skills_enabled: bool = False
     model_timeout: float = 180.0
     task_timeout: float = 900.0
     frontend_dir: Path | None = None
@@ -44,5 +45,6 @@ class WebSettings:
             mode=intake.mode, env_file=intake.env_file,
             image=intake.execution_image, execution_timeout=intake.execution_timeout,
             analysis_max_tokens=intake.analysis_max_tokens,
+            skills_enabled=intake.skills_enabled,
             frontend_dir=project / "frontend/dist",
         )

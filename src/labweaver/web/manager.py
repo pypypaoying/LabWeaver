@@ -746,6 +746,7 @@ class TaskManager:
             "final_answer": report.get("final_answer", ""), "artifacts": artifacts, "downloads": downloads,
             "task_plan": report.get("task_plan", []), "model_calls": report.get("model_calls", 0),
             "task_spec":report.get("task_spec"), "verification":report.get("verification",[]), "token_usage":report.get("token_usage"),
+            "skills":report.get("skills"),
             "analysis_model_calls": report.get("analysis_model_calls", 0), "events": self.all_events(run_id),
             "history_run_ids": json.loads(run["context_ids"]), "model_selection": json.loads(model[0]) if model else None,
             "timing": self._timing_snapshot(run_id) or report.get("timing")}

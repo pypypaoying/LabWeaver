@@ -29,7 +29,7 @@ def freeze_source(source, output):
     package=Path(source).resolve()/'labweaver'
     expected={}
     for item in sorted(package.rglob('*')):
-        if item.is_file() and item.suffix in {'.py','.sql'}:
+        if item.is_file() and item.suffix in {'.py','.sql','.md','.json','.txt'}:
             relative=Path('labweaver')/item.relative_to(package)
             target=destination/relative;target.parent.mkdir(parents=True,exist_ok=True)
             raw=item.read_bytes();target.write_bytes(raw)

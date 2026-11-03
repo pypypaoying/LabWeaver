@@ -58,6 +58,8 @@ flowchart TD
 
 ## 执行协议与 Harness
 
+可选 Skills 使用包内固定清单和 `SKILL.md`，通过受控的 `read_skill(skill_id)` 渐进加载，不开放通用文件读取或执行工具。目录仅包含ID、用途和哈希，读取时核对规范化 UTF-8/LF 正文指纹；任意路径、URL、工作目录同名文件不能注册技能。主 Agent 每任务最多3次读取，子 Agent 每委派最多2次，仍受原主/子模型各12次及执行预算约束；中断恢复不重置预算。技能内容、来源与实际调用留在工具账本，报告另有轻量 `skills` 摘要。关闭时不暴露工具或目录。
+
 原始数据以字符串 JSON 快照进入容器；重复表头使用不同 `cN`，原名在列映射中，前导零、NA、NULL 不自动改变。每次脚本重新 `load_dataset()`，没有隐藏 Notebook 变量。`emit_table()`、`emit_metric()`、`emit_figure()` 只导出，不实现统计业务算法。
 
 列映射 `df.attrs["columns"]` 是包含 `id/position/name` 的字典列表；脚本使用稳定 `cN` 选择列。table/metric/figure 交付项分别使用对应 emit 函数；独立 explanation 交付项使用 `emit_metric()` 保存支撑事实，普通口径说明只放入最终回答。产物校验错误返回具体原因，代码 Agent 可以按真实错误修正。

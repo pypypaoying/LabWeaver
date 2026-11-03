@@ -14,6 +14,7 @@ const toolNames: Record<string, string> = {
   search_materials: '检索任务资料',
   delegate_analysis: '委派代码 Agent 分析',
   read_artifact: '核对分析成果',
+  read_skill: '读取分析技能',
   ask_user: '确认关键口径',
 };
 
@@ -41,6 +42,9 @@ export function summarizeProgress(events: RunEvent[], active: boolean, awaitingI
     const started = { state: active && !awaitingInput ? 'running' as const : 'neutral' as const, status: awaitingInput ? '等待回复' : active ? '执行中' : '仅有开始记录' };
     if (event.type === 'running') {
       update({ id: `start:${event.seq}`, title: typeof payload.resumed_question_id === 'string' ? '已接收回复，继续分析' : '宿主已接收任务，启动分析', state: 'neutral', status: '已开始' });
+    } else if (event.type === 'skill_loaded') {
+      const readId = payload.parent_call_id ? `${payload.parent_call_id}:${payload.tool_call_id ?? event.seq}` : String(event.seq);
+      update({ id: `skill:${payload.role}:${readId}`, title: '已读取分析技能', detail: String(payload.skill_id ?? ''), state: 'complete', status: '已加载' });
     } else if (event.type === 'cancelling') {
       update({ id: `cancel:${event.seq}`, title: '已请求停止当前执行并检查清理结果', state: active ? 'running' : 'neutral', status: active ? '停止中' : '已请求停止' });
     } else if (event.type === 'model_start' || event.type === 'model_end' || event.type === 'model_retry') {

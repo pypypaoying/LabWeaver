@@ -10,6 +10,10 @@ AnaliyMaster 是本地优先的通用数据分析助手，原名 LabWeaver。它
 
 主 Agent 使用 Deep Agents 理解任务、按需检索、澄清并核对交付项；独立代码 Agent 使用 LangChain `create_agent`，通过 pandas、NumPy、Matplotlib 完成处理、计算和绘图。采用轻量计划＋ReAct 工具循环＋有限报错修正。固定统计与绘图工具已经替换。
 
+可选分析 Skills 提供数据探索、统计、可视化与交付检查指导，通过受控工具按需读取；实际计算仍在原 Docker 沙箱完成。技能已适配公开的 Anthropic Data Analyst Plugin，来源、修改和许可随包保留。当前默认关闭，可在 `[intake]` 中设 `skills_enabled = true` 后重启应用。使用与对照测试见[Skills说明](docs/usage.md#按需分析-skills)，加载技能不等于分析已通过核验。
+
+[Skills真实对照](evaluation/results/skills-pilot.md)共48次：关闭21/24、开启20/24；开启组27次真实技能读取，token约增加40.4%。本次未证明完成率提升，因此保留为可选能力；初始14次与单独演示的原始记录另存，不混入正式分母。
+
 ## 本地聊天界面
 
 浏览器应用复用现有双 Agent 和 Docker 执行。支持上传 CSV、可选资料、流式执行事件、澄清回复、真实结果与下载，并保存基础聊天历史。一个对话固定一份 CSV；首次发送后附件冻结。重启后能查看历史并继续发起新任务，不能恢复已中断的内存检查点。

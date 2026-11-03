@@ -111,6 +111,7 @@ def agent_worker(settings, app_id, csv_path, materials, context, commands, event
             child = create_model(config, max_tokens=settings.analysis_max_tokens)
         session = create_session(csv_path, main, material_paths=materials, analysis_model=child,
                                  history_context=context, cancellation_event=cancellation,
+                                 skills_enabled=settings.skills_enabled,
                                  execution_config=ExecutionConfig(image=settings.image, timeout=settings.execution_timeout))
         while not stopping.is_set():
             command = commands.get()

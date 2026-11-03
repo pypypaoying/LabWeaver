@@ -25,6 +25,7 @@ class IntakeConfig:
     execution_image: str = "labweaver-python:0.3.0"
     execution_timeout: int = 60
     analysis_max_tokens: int = 12288
+    skills_enabled: bool = False
 
 
 _DEFAULTS = {
@@ -39,6 +40,7 @@ _DEFAULTS = {
     "execution_image": "labweaver-python:0.3.0",
     "execution_timeout": 60,
     "analysis_max_tokens": 12288,
+    "skills_enabled": False,
 }
 _KEYS = frozenset(
     {
@@ -55,6 +57,7 @@ _KEYS = frozenset(
         "execution_image",
         "execution_timeout",
         "analysis_max_tokens",
+        "skills_enabled",
     }
 )
 _PATH_KEYS = frozenset({"csv", "task_file", "env_file", "output_dir"})
@@ -134,6 +137,10 @@ def _apply_layer(settings: dict, layer: dict, *, base: Path) -> None:
                     "Setting 'materials' must be an array of file paths."
                 )
             normalized[key] = tuple(_resolve_path(item, base, key) for item in value)
+        elif key == "skills_enabled":
+            if type(value) is not bool:
+                raise ConfigurationError("Setting 'skills_enabled' must be a boolean.")
+            normalized[key] = value
         elif key in _PATH_KEYS:
             normalized[key] = _resolve_path(value, base, key)
         elif key in {"sample_rows", "execution_timeout", "analysis_max_tokens"}:
@@ -217,4 +224,5 @@ def load_intake_config(
         execution_image=settings["execution_image"],
         execution_timeout=settings["execution_timeout"],
         analysis_max_tokens=settings["analysis_max_tokens"],
+        skills_enabled=settings["skills_enabled"],
     )

@@ -90,6 +90,22 @@ describe('genuine central execution progress', () => {
     expect(summarizeProgress([event(1, 'model_end', { role: 'main', call: 3, status: 'error' })], false)[0]).toMatchObject({ state: 'error', status: '请求失败' });
   });
 
+  it('records actual skill reads by delegation without treating them as completed analysis', () => {
+    const steps = summarizeProgress([
+      event(1, 'skill_loaded', {role:'analysis',parent_call_id:'first',tool_call_id:'read-1',skill_id:'statistical-analysis'}),
+      event(2, 'skill_loaded', {role:'analysis',parent_call_id:'first',tool_call_id:'read-1',skill_id:'statistical-analysis'}),
+      event(3, 'skill_loaded', {role:'analysis',parent_call_id:'second',tool_call_id:'read-1',skill_id:'data-visualization'}),
+    ], true);
+    expect(steps).toHaveLength(2);
+    expect(steps[0]).toMatchObject({title:'已读取分析技能',status:'已加载',detail:'statistical-analysis'});
+    expect(steps[1].detail).toBe('data-visualization');
+    const withoutParent = summarizeProgress([
+      event(1, 'skill_loaded', {role:'analysis',tool_call_id:'read-1',skill_id:'statistical-analysis'}),
+      event(2, 'skill_loaded', {role:'analysis',tool_call_id:'read-1',skill_id:'data-visualization'}),
+    ], true);
+    expect(withoutParent).toHaveLength(2);
+  });
+
   it('distinguishes a real successful process from missing task deliverables', () => {
     const steps = summarizeProgress([event(1, 'execution_end', { tool_call_id: 'p', attempt: 1, delivery_status: 'error', missing_deliverables: ['comparison-table', 'trend-chart'], record: { status: 'completed', exit_code: 0, elapsed_seconds: 2 } })], true);
     expect(steps[0]).toMatchObject({ state: 'error', status: '成果缺失', detail: '退出码 0 · 耗时 2.0 秒 · 代码已运行，缺少成果：comparison-table、trend-chart' });

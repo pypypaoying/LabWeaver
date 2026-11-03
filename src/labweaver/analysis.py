@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictInt
 from labweaver.runtime.artifacts import artifact_view, artifact_receipts
 from labweaver.modeling import ANALYSIS_POLICY, artifact_contracts
 from labweaver.runtime.verification import verification_view
+from labweaver.runtime.skills import skill_context, read_skill_tool, skill_loads
 from labweaver.runtime.evidence import _message_content, _trace_messages, parse_model_object
 from labweaver.runtime.harness import (
     ExecutionHarness,
@@ -53,6 +54,7 @@ class AnalysisRunner:
         progress=None,
         cancellation_event=None,
         get_task_spec=None,
+        skill_library=None,
     ):
         self.model, self.executor = model, executor
         self.get_snapshot, self.register, self.read_asset = (
@@ -63,6 +65,7 @@ class AnalysisRunner:
         self.progress = progress or (lambda event: None)
         self.cancellation_event = cancellation_event
         self.get_task_spec = get_task_spec or (lambda: {})
+        self.skill_library = skill_library
         self._delegation_lock = threading.Lock()
         self.new_task()
 
@@ -136,7 +139,8 @@ class AnalysisRunner:
         start = time.monotonic()
         progress = progress or self.progress
         harness = ExecutionHarness(
-            {"execute_python": 3, "read_artifact": 8},
+            {"execute_python": 3, "read_artifact": 8,
+             **({"read_skill": 2} if self.skill_library else {})},
             model_counter=self._charge,
             reject_invalid=False,
             cancellation_event=self.cancellation_event,
@@ -276,9 +280,11 @@ class AnalysisRunner:
         snapshot = self.get_snapshot()
         graph = create_agent(
             model=self.model,
-            tools=[execute_python, read_artifact],
+            tools=[execute_python, read_artifact] +
+                  ([read_skill_tool(self.skill_library, harness, progress, "analysis")]
+                   if self.skill_library else []),
             middleware=[harness],
-            system_prompt=ANALYSIS_PROMPT.replace("仅使用 pandas、NumPy、Matplotlib 和标准库", "仅使用 pandas、NumPy、Matplotlib、scikit-learn 和标准库") + ANALYSIS_POLICY,
+            system_prompt=ANALYSIS_PROMPT.replace("仅使用 pandas、NumPy、Matplotlib 和标准库", "仅使用 pandas、NumPy、Matplotlib、scikit-learn 和标准库") + ANALYSIS_POLICY + skill_context(self.skill_library),
         )
         output = {
             "status": "error",
@@ -398,6 +404,7 @@ class AnalysisRunner:
                 "model_calls": harness.model_calls,
                 "model_diagnostics": harness.model_diagnostics,
                 "token_usage": harness.token_usage,
+                "skill_loads": skill_loads(harness.execution_ledger, "analysis"),
                 "attempt_ids": attempt_ids,
                 "elapsed_seconds": round(time.monotonic() - start, 3),
                 "result": output,

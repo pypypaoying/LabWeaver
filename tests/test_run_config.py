@@ -320,6 +320,29 @@ def test_invalid_material_arrays_are_configuration_errors(tmp_path, monkeypatch,
         load_intake_config(overrides={"materials": value})
 
 
+def test_skills_setting_requires_a_real_boolean(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert load_intake_config().skills_enabled is False
+    assert load_intake_config(overrides={"skills_enabled": True}).skills_enabled is True
+    for value in ["true", "false", 1, 0, None]:
+        with pytest.raises(ConfigurationError, match="skills_enabled"):
+            load_intake_config(overrides={"skills_enabled": value})
+
+
+def test_enabled_skills_reach_formal_runtime_and_web_settings(tmp_path, monkeypatch):
+    from labweaver.runtime.intake import create_runtime_session
+    from labweaver.web.settings import WebSettings
+    monkeypatch.chdir(tmp_path)
+    source=tmp_path/'input.csv'
+    source.write_text('id,value\n001,2\n',encoding='utf-8')
+    _toml(tmp_path/'labweaver.toml', 'csv = "input.csv"\nmode = "offline"\nskills_enabled = true\n')
+    config=load_intake_config()
+    report=create_runtime_session(config).invoke('概览字段与缺失情况')
+    assert report['status']=='completed' and report['skills']['enabled'] is True
+    assert len(report['skills']['catalog'])==4 and report['skills']['loads']==[]
+    assert WebSettings.from_project(data_dir=tmp_path/'app').skills_enabled is True
+
+
 def test_repeated_cli_materials_override_configuration_as_cwd_paths(
     tmp_path, monkeypatch, capsys
 ):
