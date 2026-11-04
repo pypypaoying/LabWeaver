@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "suite_sha256": "d539be5ea1961fe5946eb494f1c2b7b93e905d95178afe08b767e33354896864",
+  "basis": "Source bytes and header identity only; no model outcomes or answer labels used",
+  "heldout_csv_paths": 24,
+  "heldout_unique_byte_hashes": 23,
+  "byte_identical_groups": [
+    {
+      "sha256": "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7",
+      "csv_files": [
+        "titanic_train.csv",
+        "titanic.csv"
+      ]
+    }
+  ],
+  "known_family_groups": [
+    {
+      "family": "Titanic",
+      "development": [
+        "test_ave.csv"
+      ],
+      "heldout": [
+        "titanic_train.csv",
+        "titanic.csv",
+        "test_x.csv"
+      ],
+      "basis": "PassengerId/Survived/Pclass/Name/Sex/Age fields or derived Pclass/Sex/Age/Fare/Embarked/Title/IsAlone/Age*Pclass fields"
+    }
+  ],
+  "scope": "Not an exhaustive semantic-family or record-overlap audit; CSV-name clustered intervals may understate same-family correlation. No questions or runs excluded."
+}

@@ -12,7 +12,7 @@ AnaliyMaster 是本地优先的通用数据分析助手，原名 LabWeaver。它
 
 可选分析 Skills 提供数据探索、统计、可视化与交付检查指导，通过受控工具按需读取；实际计算仍在原 Docker 沙箱完成。技能已适配公开的 Anthropic Data Analyst Plugin，来源、修改和许可随包保留。当前默认关闭，可在 `[intake]` 中设 `skills_enabled = true` 后重启应用。使用与对照测试见[Skills说明](docs/usage.md#按需分析-skills)，加载技能不等于分析已通过核验。
 
-[Skills真实对照](evaluation/results/skills-pilot.md)共48次：关闭21/24、开启20/24；开启组27次真实技能读取，token约增加40.4%。本次未证明完成率提升，因此保留为可选能力；初始14次与单独演示的原始记录另存，不混入正式分母。
+[Skills外部基准对照](evaluation/results/skills-dabench.md)使用官方 InfiAgent-DABench 的24题公开验证子集，每题每组3次，共144次真实在线运行。答案匹配且交付完成：关闭61/72、开启64/72；开启组token约增加47.9%，95%探索性区间覆盖零差值，尚不能确认稳定收益，因此默认仍关闭。题目来自23种不同CSV内容，并未全面检验专业报告、RAG或建模能力。[原48次合成对照](evaluation/results/skills-pilot.md)保留为集成与回归证据，不与外部基准合并。
 
 ## 本地聊天界面
 

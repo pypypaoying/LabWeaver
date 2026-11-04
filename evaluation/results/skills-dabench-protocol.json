@@ -1,0 +1,268 @@
+{
+  "protocol_version": 2,
+  "upstream_dataset": "infiagent/DABench",
+  "dataset_revision": "b455d578e30fee513abd79936cbdf7a6de026cb5",
+  "scorer_revision": "3d6c4a70198e0a41fadf539f5b43c88b8c1a2d9c",
+  "contract_sha256": "4a493a176ea59eb4f9924e576425b2aea6606c6d9f6bf24b6f53d64079ca0aa7",
+  "implementation_sha256": "fd967b1b19c5249a4d572bf270f1bc20f2e866022eadad05ddbae9f6dd254945",
+  "implementation_commit": "e8bbb7625684cf7b2f5060a3519a9240fdade813",
+  "seed": 20261103,
+  "selection_policy": "SHA256(seed:split:question_id), quotas 4 dev and 8 per level heldout; one question per CSV; dev allocated first",
+  "development": [
+    {
+      "id": "DA210",
+      "dataset": "fb_articles_20180822_20180829_df.csv",
+      "level": "hard"
+    },
+    {
+      "id": "DA655",
+      "dataset": "DES=+2006261.csv",
+      "level": "medium"
+    },
+    {
+      "id": "DA27",
+      "dataset": "insurance.csv",
+      "level": "medium"
+    },
+    {
+      "id": "DA0",
+      "dataset": "test_ave.csv",
+      "level": "easy"
+    }
+  ],
+  "heldout": [
+    {
+      "id": "DA480",
+      "dataset": "oecd_education_spending.csv",
+      "level": "hard",
+      "concepts": [
+        "Feature Engineering",
+        "Summary Statistics"
+      ]
+    },
+    {
+      "id": "DA271",
+      "dataset": "3901.csv",
+      "level": "hard",
+      "concepts": [
+        "Comprehensive Data Preprocessing"
+      ]
+    },
+    {
+      "id": "DA590",
+      "dataset": "20170413_000000_group_statistics.csv",
+      "level": "hard",
+      "concepts": [
+        "Machine Learning"
+      ]
+    },
+    {
+      "id": "DA673",
+      "dataset": "my_test_01.csv",
+      "level": "hard",
+      "concepts": [
+        "Comprehensive Data Preprocessing",
+        "Feature Engineering",
+        "Correlation Analysis",
+        "Summary Statistics"
+      ]
+    },
+    {
+      "id": "DA419",
+      "dataset": "bitconnect_price.csv",
+      "level": "hard",
+      "concepts": [
+        "Summary Statistics",
+        "Distribution Analysis"
+      ]
+    },
+    {
+      "id": "DA496",
+      "dataset": "percent-bachelors-degrees-women-usa.csv",
+      "level": "hard",
+      "concepts": [
+        "Feature Engineering",
+        "Summary Statistics"
+      ]
+    },
+    {
+      "id": "DA452",
+      "dataset": "baro_2015.csv",
+      "level": "hard",
+      "concepts": [
+        "Correlation Analysis",
+        "Feature Engineering"
+      ]
+    },
+    {
+      "id": "DA77",
+      "dataset": "microsoft.csv",
+      "level": "hard",
+      "concepts": [
+        "Comprehensive Data Preprocessing",
+        "Summary Statistics"
+      ]
+    },
+    {
+      "id": "DA337",
+      "dataset": "Zip_MedianSoldPricePerSqft_AllHomes.csv",
+      "level": "medium",
+      "concepts": [
+        "Distribution Analysis"
+      ]
+    },
+    {
+      "id": "DA721",
+      "dataset": "auto-mpg.csv",
+      "level": "medium",
+      "concepts": [
+        "Correlation Analysis"
+      ]
+    },
+    {
+      "id": "DA412",
+      "dataset": "titanic_train.csv",
+      "level": "medium",
+      "concepts": [
+        "Feature Engineering"
+      ]
+    },
+    {
+      "id": "DA716",
+      "dataset": "Current_Logan.csv",
+      "level": "medium",
+      "concepts": [
+        "Summary Statistics",
+        "Comprehensive Data Preprocessing"
+      ]
+    },
+    {
+      "id": "DA11",
+      "dataset": "GODREJIND.csv",
+      "level": "medium",
+      "concepts": [
+        "Correlation Analysis"
+      ]
+    },
+    {
+      "id": "DA644",
+      "dataset": "random_stock_data.csv",
+      "level": "medium",
+      "concepts": [
+        "Distribution Analysis"
+      ]
+    },
+    {
+      "id": "DA250",
+      "dataset": "baseball_data.csv",
+      "level": "medium",
+      "concepts": [
+        "Feature Engineering",
+        "Summary Statistics"
+      ]
+    },
+    {
+      "id": "DA518",
+      "dataset": "titanic.csv",
+      "level": "medium",
+      "concepts": [
+        "Outlier Detection"
+      ]
+    },
+    {
+      "id": "DA555",
+      "dataset": "tree.csv",
+      "level": "easy",
+      "concepts": [
+        "Feature Engineering"
+      ]
+    },
+    {
+      "id": "DA351",
+      "dataset": "test_x.csv",
+      "level": "easy",
+      "concepts": [
+        "Correlation Analysis"
+      ]
+    },
+    {
+      "id": "DA218",
+      "dataset": "ferret-Pitt-2-preinf-lib2-100_sitediffsel.csv",
+      "level": "easy",
+      "concepts": [
+        "Correlation Analysis"
+      ]
+    },
+    {
+      "id": "DA33",
+      "dataset": "imp.score.ldlr.metabolome.csv",
+      "level": "easy",
+      "concepts": [
+        "Distribution Analysis"
+      ]
+    },
+    {
+      "id": "DA59",
+      "dataset": "estimated_numbers.csv",
+      "level": "easy",
+      "concepts": [
+        "Distribution Analysis",
+        "Summary Statistics",
+        "Feature Engineering"
+      ]
+    },
+    {
+      "id": "DA542",
+      "dataset": "abalone.csv",
+      "level": "easy",
+      "concepts": [
+        "Summary Statistics"
+      ]
+    },
+    {
+      "id": "DA578",
+      "dataset": "e5_aapl.csv",
+      "level": "easy",
+      "concepts": [
+        "Summary Statistics"
+      ]
+    },
+    {
+      "id": "DA427",
+      "dataset": "cost_data_with_errors.csv",
+      "level": "easy",
+      "concepts": [
+        "Comprehensive Data Preprocessing"
+      ]
+    }
+  ],
+  "repetitions": 3,
+  "arms": [
+    "off",
+    "on"
+  ],
+  "planned_heldout_trials": 144,
+  "model": {
+    "base_url": "https://api.deepseek.com",
+    "model_id": "deepseek-flash",
+    "timeout": 30.0
+  },
+  "image": {
+    "id": "sha256:206b28a7063a3da884cb03b234c995f698f65319fcff03bcfb7b12e510836a92",
+    "tag": "labweaver-python:0.3.0"
+  },
+  "options": {
+    "analysis_max_tokens": 12288,
+    "execution_timeout": 60,
+    "formatter_max_tokens": 2048,
+    "formatter_retries": 0,
+    "main_max_tokens": 4096,
+    "max_retries": 0,
+    "temperature": 0,
+    "worker_timeout": 900
+  },
+  "primary_answer_metric": "Official ABQ after blind formatting with raw ABQ/PASQ/UASQ reported separately",
+  "primary_product_metric": "Validated delivery AND all official labelled answers correct",
+  "scoring_boundary": "Official comparator; raw and blind model-formatted final answers separate; deterministic metric-key extraction supplemental; formatter uses same pinned provider model without tools or data",
+  "source_directory_contains_no_private_inputs": true
+}

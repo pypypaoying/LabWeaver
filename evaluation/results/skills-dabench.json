@@ -1,0 +1,1603 @@
+{
+  "arms": {
+    "off": {
+      "answer_correct": 64,
+      "code_attempts": 93,
+      "correct_subanswers": 101,
+      "delivery_completed": 64,
+      "end_to_end": 61,
+      "failure_categories": {
+        "answer_mismatch": 3,
+        "clarification": 3,
+        "format": 0,
+        "protocol": 5,
+        "unclassified": 0,
+        "worker": 0
+      },
+      "format_rescued": 62,
+      "formatter_calls": 67,
+      "formatter_known_total_tokens": 54912,
+      "formatter_status_unmeasured_trials": 0,
+      "formatter_unknown_usage_calls": 0,
+      "known_total_tokens": 3284813,
+      "median_seconds": 21.523,
+      "missing": 0,
+      "no_internal_repair_attained": 0,
+      "official_blind_reformat": {
+        "ABQ": 0.8889,
+        "PASQ": 0.8958,
+        "UASQ": 0.9099
+      },
+      "official_raw": {
+        "ABQ": 0.0278,
+        "PASQ": 0.0278,
+        "UASQ": 0.027
+      },
+      "planned": 72,
+      "rates_observed": {
+        "answer_correct": 0.8888888888888888,
+        "delivery_completed": 0.8888888888888888,
+        "end_to_end": 0.8472222222222222
+      },
+      "rates_planned": {
+        "answer_correct": 0.8888888888888888,
+        "delivery_completed": 0.8888888888888888,
+        "end_to_end": 0.8472222222222222
+      },
+      "raw_answer_correct": 2,
+      "raw_correct_subanswers": 3,
+      "raw_pass_but_formatted_fail": 0,
+      "recorded": 72,
+      "skill_reads": 0,
+      "skill_reads_by_id": {
+        "analysis-validation": 0,
+        "data-exploration": 0,
+        "data-visualization": 0,
+        "statistical-analysis": 0
+      },
+      "skill_reads_by_role": {
+        "analysis": 0,
+        "main": 0
+      },
+      "skill_reads_unmeasured_trials": 0,
+      "timing_unmeasured_trials": 0,
+      "total_subanswers": 111,
+      "trials_reading_skills": 0,
+      "unknown_usage_calls": 0,
+      "usage_call_counts_unmeasured_trials": 0,
+      "usage_unmeasured_trials": 0
+    },
+    "on": {
+      "answer_correct": 67,
+      "code_attempts": 114,
+      "correct_subanswers": 105,
+      "delivery_completed": 66,
+      "end_to_end": 64,
+      "failure_categories": {
+        "answer_mismatch": 2,
+        "clarification": 1,
+        "format": 0,
+        "protocol": 5,
+        "unclassified": 0,
+        "worker": 0
+      },
+      "format_rescued": 65,
+      "formatter_calls": 69,
+      "formatter_known_total_tokens": 57038,
+      "formatter_status_unmeasured_trials": 0,
+      "formatter_unknown_usage_calls": 0,
+      "known_total_tokens": 4857613,
+      "median_seconds": 23.4925,
+      "missing": 0,
+      "no_internal_repair_attained": 1,
+      "official_blind_reformat": {
+        "ABQ": 0.9306,
+        "PASQ": 0.9306,
+        "UASQ": 0.9459
+      },
+      "official_raw": {
+        "ABQ": 0.0278,
+        "PASQ": 0.0278,
+        "UASQ": 0.018
+      },
+      "planned": 72,
+      "rates_observed": {
+        "answer_correct": 0.9305555555555556,
+        "delivery_completed": 0.9166666666666666,
+        "end_to_end": 0.8888888888888888
+      },
+      "rates_planned": {
+        "answer_correct": 0.9305555555555556,
+        "delivery_completed": 0.9166666666666666,
+        "end_to_end": 0.8888888888888888
+      },
+      "raw_answer_correct": 2,
+      "raw_correct_subanswers": 2,
+      "raw_pass_but_formatted_fail": 0,
+      "recorded": 72,
+      "skill_reads": 76,
+      "skill_reads_by_id": {
+        "analysis-validation": 2,
+        "data-exploration": 6,
+        "data-visualization": 1,
+        "statistical-analysis": 67
+      },
+      "skill_reads_by_role": {
+        "analysis": 17,
+        "main": 59
+      },
+      "skill_reads_unmeasured_trials": 0,
+      "timing_unmeasured_trials": 0,
+      "total_subanswers": 111,
+      "trials_reading_skills": 59,
+      "unknown_usage_calls": 0,
+      "usage_call_counts_unmeasured_trials": 0,
+      "usage_unmeasured_trials": 0
+    }
+  },
+  "batch": "skills-dabench-v4",
+  "benchmark": "InfiAgent-DABench public validation compatible subset",
+  "by_case": [
+    {
+      "concepts": [
+        "Correlation Analysis"
+      ],
+      "dataset": "GODREJIND.csv",
+      "id": "DA11",
+      "level": "medium",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 4
+      }
+    },
+    {
+      "concepts": [
+        "Correlation Analysis"
+      ],
+      "dataset": "ferret-Pitt-2-preinf-lib2-100_sitediffsel.csv",
+      "id": "DA218",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 4
+      }
+    },
+    {
+      "concepts": [
+        "Feature Engineering",
+        "Summary Statistics"
+      ],
+      "dataset": "baseball_data.csv",
+      "id": "DA250",
+      "level": "medium",
+      "off": {
+        "answer_correct": 2,
+        "delivery_completed": 2,
+        "end_to_end": 2,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 1,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Comprehensive Data Preprocessing"
+      ],
+      "dataset": "3901.csv",
+      "id": "DA271",
+      "level": "hard",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 4
+      }
+    },
+    {
+      "concepts": [
+        "Distribution Analysis"
+      ],
+      "dataset": "imp.score.ldlr.metabolome.csv",
+      "id": "DA33",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Distribution Analysis"
+      ],
+      "dataset": "Zip_MedianSoldPricePerSqft_AllHomes.csv",
+      "id": "DA337",
+      "level": "medium",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Correlation Analysis"
+      ],
+      "dataset": "test_x.csv",
+      "id": "DA351",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 1
+      }
+    },
+    {
+      "concepts": [
+        "Feature Engineering"
+      ],
+      "dataset": "titanic_train.csv",
+      "id": "DA412",
+      "level": "medium",
+      "off": {
+        "answer_correct": 2,
+        "delivery_completed": 2,
+        "end_to_end": 1,
+        "failure_categories": {
+          "answer_mismatch": 1,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 1,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 1,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Summary Statistics",
+        "Distribution Analysis"
+      ],
+      "dataset": "bitconnect_price.csv",
+      "id": "DA419",
+      "level": "hard",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 6
+      }
+    },
+    {
+      "concepts": [
+        "Comprehensive Data Preprocessing"
+      ],
+      "dataset": "cost_data_with_errors.csv",
+      "id": "DA427",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 1,
+        "delivery_completed": 3,
+        "end_to_end": 1,
+        "failure_categories": {
+          "answer_mismatch": 2,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      }
+    },
+    {
+      "concepts": [
+        "Correlation Analysis",
+        "Feature Engineering"
+      ],
+      "dataset": "baro_2015.csv",
+      "id": "DA452",
+      "level": "hard",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 4
+      }
+    },
+    {
+      "concepts": [
+        "Feature Engineering",
+        "Summary Statistics"
+      ],
+      "dataset": "oecd_education_spending.csv",
+      "id": "DA480",
+      "level": "hard",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Feature Engineering",
+        "Summary Statistics"
+      ],
+      "dataset": "percent-bachelors-degrees-women-usa.csv",
+      "id": "DA496",
+      "level": "hard",
+      "off": {
+        "answer_correct": 2,
+        "delivery_completed": 1,
+        "end_to_end": 1,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 2,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 2,
+        "delivery_completed": 0,
+        "end_to_end": 0,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 3,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 4
+      }
+    },
+    {
+      "concepts": [
+        "Outlier Detection"
+      ],
+      "dataset": "titanic.csv",
+      "id": "DA518",
+      "level": "medium",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 2,
+        "end_to_end": 2,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 1,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Summary Statistics"
+      ],
+      "dataset": "abalone.csv",
+      "id": "DA542",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 1,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 1,
+        "recorded": 3,
+        "skill_reads": 0
+      }
+    },
+    {
+      "concepts": [
+        "Feature Engineering"
+      ],
+      "dataset": "tree.csv",
+      "id": "DA555",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 2,
+        "end_to_end": 2,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 1,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      }
+    },
+    {
+      "concepts": [
+        "Summary Statistics"
+      ],
+      "dataset": "e5_aapl.csv",
+      "id": "DA578",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 1
+      }
+    },
+    {
+      "concepts": [
+        "Distribution Analysis",
+        "Summary Statistics",
+        "Feature Engineering"
+      ],
+      "dataset": "estimated_numbers.csv",
+      "id": "DA59",
+      "level": "easy",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 5
+      }
+    },
+    {
+      "concepts": [
+        "Machine Learning"
+      ],
+      "dataset": "20170413_000000_group_statistics.csv",
+      "id": "DA590",
+      "level": "hard",
+      "off": {
+        "answer_correct": 0,
+        "delivery_completed": 0,
+        "end_to_end": 0,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 3,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 1,
+        "delivery_completed": 1,
+        "end_to_end": 1,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 1,
+          "format": 0,
+          "protocol": 1,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 1,
+        "recorded": 3,
+        "skill_reads": 6
+      }
+    },
+    {
+      "concepts": [
+        "Distribution Analysis"
+      ],
+      "dataset": "random_stock_data.csv",
+      "id": "DA644",
+      "level": "medium",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Comprehensive Data Preprocessing",
+        "Feature Engineering",
+        "Correlation Analysis",
+        "Summary Statistics"
+      ],
+      "dataset": "my_test_01.csv",
+      "id": "DA673",
+      "level": "hard",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 7
+      }
+    },
+    {
+      "concepts": [
+        "Summary Statistics",
+        "Comprehensive Data Preprocessing"
+      ],
+      "dataset": "Current_Logan.csv",
+      "id": "DA716",
+      "level": "medium",
+      "off": {
+        "answer_correct": 1,
+        "delivery_completed": 3,
+        "end_to_end": 1,
+        "failure_categories": {
+          "answer_mismatch": 2,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Correlation Analysis"
+      ],
+      "dataset": "auto-mpg.csv",
+      "id": "DA721",
+      "level": "medium",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    },
+    {
+      "concepts": [
+        "Comprehensive Data Preprocessing",
+        "Summary Statistics"
+      ],
+      "dataset": "microsoft.csv",
+      "id": "DA77",
+      "level": "hard",
+      "off": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 0
+      },
+      "on": {
+        "answer_correct": 3,
+        "delivery_completed": 3,
+        "end_to_end": 3,
+        "failure_categories": {
+          "answer_mismatch": 0,
+          "clarification": 0,
+          "format": 0,
+          "protocol": 0,
+          "unclassified": 0,
+          "worker": 0
+        },
+        "raw_answer_correct": 0,
+        "recorded": 3,
+        "skill_reads": 3
+      }
+    }
+  ],
+  "complete": true,
+  "confidence_intervals": {
+    "answer_correct": {
+      "bootstrap_samples": 4000,
+      "cluster_definition": "CSV filename; shared underlying data families are not excluded.",
+      "complete_pairs": 72,
+      "confidence_level": 0.95,
+      "dataset_clusters": 24,
+      "excluded_incomplete_pairs": 0,
+      "lower": -0.041666666666666664,
+      "method": "dataset_cluster_percentile_bootstrap",
+      "on_minus_off": 0.041666666666666664,
+      "resampling_unit": "dataset",
+      "seed": 20261103,
+      "upper": 0.125
+    },
+    "delivery_completed": {
+      "bootstrap_samples": 4000,
+      "cluster_definition": "CSV filename; shared underlying data families are not excluded.",
+      "complete_pairs": 72,
+      "confidence_level": 0.95,
+      "dataset_clusters": 24,
+      "excluded_incomplete_pairs": 0,
+      "lower": -0.027777777777777776,
+      "method": "dataset_cluster_percentile_bootstrap",
+      "on_minus_off": 0.027777777777777776,
+      "resampling_unit": "dataset",
+      "seed": 20261103,
+      "upper": 0.09722222222222222
+    },
+    "end_to_end": {
+      "bootstrap_samples": 4000,
+      "cluster_definition": "CSV filename; shared underlying data families are not excluded.",
+      "complete_pairs": 72,
+      "confidence_level": 0.95,
+      "dataset_clusters": 24,
+      "excluded_incomplete_pairs": 0,
+      "lower": -0.06944444444444445,
+      "method": "dataset_cluster_percentile_bootstrap",
+      "on_minus_off": 0.041666666666666664,
+      "resampling_unit": "dataset",
+      "seed": 20261103,
+      "upper": 0.1527777777777778
+    }
+  },
+  "configuration": {
+    "agent_model": "deepseek-flash",
+    "analysis_max_tokens": 12288,
+    "execution_timeout": 60,
+    "formatter_max_tokens": 2048,
+    "formatter_model": "deepseek-flash",
+    "formatter_retries": 0,
+    "main_max_tokens": 4096,
+    "max_retries": 0,
+    "temperature": 0,
+    "worker_timeout": 900
+  },
+  "contract_sha256": "4a493a176ea59eb4f9924e576425b2aea6606c6d9f6bf24b6f53d64079ca0aa7",
+  "data_audit": {
+    "audit_sha256": "5d145f544f62216b880b15fae3ed7ca50c4823ebee580cda3fae36f91b234d96",
+    "available": true,
+    "byte_identical_groups": [
+      {
+        "csv_files": [
+          "titanic.csv",
+          "titanic_train.csv"
+        ],
+        "sha256": "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7"
+      }
+    ],
+    "heldout_csv_paths": 24,
+    "heldout_unique_byte_hashes": 23,
+    "known_family_groups": [
+      {
+        "development": [
+          "test_ave.csv"
+        ],
+        "family": "Titanic",
+        "heldout": [
+          "test_x.csv",
+          "titanic.csv",
+          "titanic_train.csv"
+        ]
+      }
+    ],
+    "scope": "CSV bytes and headers only; no labels or model outcomes used for grouping. Not an exhaustive family audit.",
+    "suite_sha256": "d539be5ea1961fe5946eb494f1c2b7b93e905d95178afe08b767e33354896864"
+  },
+  "dataset_family_boundary": {
+    "complete_family_isolation_verified": false,
+    "development_use": "Answer-format adapter development only; Agent prompts were not tuned on development tasks.",
+    "family_aware_split": false,
+    "known_overlap_examples": [
+      {
+        "basis": "Original column headers and dataset identity reviewed; same-source or derived CSVs.",
+        "development_csv": "test_ave.csv",
+        "family": "Titanic",
+        "heldout_csv": [
+          "test_x.csv",
+          "titanic.csv",
+          "titanic_train.csv"
+        ]
+      }
+    ],
+    "pretraining_contamination_excluded": false,
+    "split_unit": "CSV file"
+  },
+  "dataset_revision": "b455d578e30fee513abd79936cbdf7a6de026cb5",
+  "design": {
+    "dataset_count_unit": "distinct CSV files, not proven independent data families",
+    "planned_trials": 144,
+    "recorded_trials": 144,
+    "repetitions": 3,
+    "unique_cases": 24,
+    "unique_datasets": 24
+  },
+  "difficulty_counts": {
+    "easy": 8,
+    "hard": 8,
+    "medium": 8
+  },
+  "failure_category_labels": {
+    "answer_mismatch": "已交付但官方答案不符",
+    "clarification": "等待用户澄清",
+    "format": "未形成可评分答案／整理失败",
+    "protocol": "运行协议或交付失败",
+    "unclassified": "尚未归因",
+    "worker": "工作进程或基础设施异常"
+  },
+  "grouping_sensitivity": {
+    "available": true,
+    "identical_content": {
+      "clusters": 23,
+      "confidence_intervals": {
+        "answer_correct": {
+          "bootstrap_samples": 4000,
+          "cluster_definition": "Exact CSV byte identity; further semantic overlap remains possible.",
+          "complete_pairs": 72,
+          "confidence_level": 0.95,
+          "dataset_clusters": 23,
+          "excluded_incomplete_pairs": 0,
+          "lower": -0.043478260869565216,
+          "method": "dataset_cluster_percentile_bootstrap",
+          "on_minus_off": 0.041666666666666664,
+          "resampling_unit": "dataset",
+          "seed": 20261103,
+          "upper": 0.125
+        },
+        "delivery_completed": {
+          "bootstrap_samples": 4000,
+          "cluster_definition": "Exact CSV byte identity; further semantic overlap remains possible.",
+          "complete_pairs": 72,
+          "confidence_level": 0.95,
+          "dataset_clusters": 23,
+          "excluded_incomplete_pairs": 0,
+          "lower": -0.02666666666666667,
+          "method": "dataset_cluster_percentile_bootstrap",
+          "on_minus_off": 0.027777777777777776,
+          "resampling_unit": "dataset",
+          "seed": 20261103,
+          "upper": 0.08333333333333333
+        },
+        "end_to_end": {
+          "bootstrap_samples": 4000,
+          "cluster_definition": "Exact CSV byte identity; further semantic overlap remains possible.",
+          "complete_pairs": 72,
+          "confidence_level": 0.95,
+          "dataset_clusters": 23,
+          "excluded_incomplete_pairs": 0,
+          "lower": -0.057971014492753624,
+          "method": "dataset_cluster_percentile_bootstrap",
+          "on_minus_off": 0.041666666666666664,
+          "resampling_unit": "dataset",
+          "seed": 20261103,
+          "upper": 0.13347222222222271
+        }
+      }
+    },
+    "known_families": {
+      "clusters": 22,
+      "confidence_intervals": {
+        "answer_correct": {
+          "bootstrap_samples": 4000,
+          "cluster_definition": "Exact byte identity plus explicitly identified data families; not exhaustive.",
+          "complete_pairs": 72,
+          "confidence_level": 0.95,
+          "dataset_clusters": 22,
+          "excluded_incomplete_pairs": 0,
+          "lower": -0.045454545454545456,
+          "method": "dataset_cluster_percentile_bootstrap",
+          "on_minus_off": 0.041666666666666664,
+          "resampling_unit": "dataset",
+          "seed": 20261103,
+          "upper": 0.1282051282051282
+        },
+        "delivery_completed": {
+          "bootstrap_samples": 4000,
+          "cluster_definition": "Exact byte identity plus explicitly identified data families; not exhaustive.",
+          "complete_pairs": 72,
+          "confidence_level": 0.95,
+          "dataset_clusters": 22,
+          "excluded_incomplete_pairs": 0,
+          "lower": -0.027777777777777776,
+          "method": "dataset_cluster_percentile_bootstrap",
+          "on_minus_off": 0.027777777777777776,
+          "resampling_unit": "dataset",
+          "seed": 20261103,
+          "upper": 0.08333333333333333
+        },
+        "end_to_end": {
+          "bootstrap_samples": 4000,
+          "cluster_definition": "Exact byte identity plus explicitly identified data families; not exhaustive.",
+          "complete_pairs": 72,
+          "confidence_level": 0.95,
+          "dataset_clusters": 22,
+          "excluded_incomplete_pairs": 0,
+          "lower": -0.05555555555555555,
+          "method": "dataset_cluster_percentile_bootstrap",
+          "on_minus_off": 0.041666666666666664,
+          "resampling_unit": "dataset",
+          "seed": 20261103,
+          "upper": 0.13636363636363635
+        }
+      }
+    },
+    "scoring_basis": "Original frozen main-table scores only; no primary interval or outcome is replaced."
+  },
+  "implementation_sha256": "fd967b1b19c5249a4d572bf270f1bc20f2e866022eadad05ddbae9f6dd254945",
+  "interrupted_batches": [
+    {
+      "batch": "skills-dabench-v2",
+      "contract_sha256": "4a493a176ea59eb4f9924e576425b2aea6606c6d9f6bf24b6f53d64079ca0aa7",
+      "excluded_from_effect_comparison": true,
+      "formatter_calls": 24,
+      "formatter_known_total_tokens": 21813,
+      "formatter_status_unmeasured_trials": 0,
+      "formatter_unknown_usage_calls": 0,
+      "known_total_tokens": 1780314,
+      "longest_recorded_seconds": 23385.875,
+      "planned_trials": 144,
+      "reason_codes": [
+        "host_time_jump_or_sleep",
+        "model_transport_error",
+        "docker_preflight_timeout"
+      ],
+      "recorded_trials": 38,
+      "status": "stopped_environment_interruption",
+      "transport_diagnostics_unmeasured_trials": 38,
+      "transport_failure_trials": null,
+      "unknown_usage_calls": 15,
+      "usage_call_counts_unmeasured_trials": 0,
+      "usage_unmeasured_trials": 0
+    }
+  ],
+  "limits": [
+    "公开验证集的预先冻结兼容子集，不是官方隐藏测试或完整排行榜成绩。",
+    "同一CSV的重复运行相关；区间按CSV文件整簇重采样，是探索性区间，未排除不同CSV之间的同源相关性。",
+    "不同CSV文件的数量不等于相同数量的独立数据家族；CSV级开发/留出划分不保证底层数据家族完全隔离，也不能排除预训练污染。",
+    "开发题仅用于格式适配，没有调整Agent提示词；已知数据家族重叠仍限制效果结论的外推。",
+    "ON比较目录、读取引导和实际正文的整体集成，不是只有正文变化的纯文本消融。",
+    "盲格式整理器只接收题目、格式要求与最终回答，不接收CSV、产物、标准答案或工具。",
+    "整理器沿用本轮固定模型，不是原论文GPT-3.5整理器的完全复现；原始分与整理后分并列。",
+    "题目方法、舍入和解释可能有歧义；盲审发现的问题不改题、不豁免、不提高分数。",
+    "失败分类是运行状态和评分字段的诊断标签，不是自动证明的根本原因。",
+    "未全面覆盖专业报告质量、RAG、分类/回归建模和实际业务任务；不能外推任意分析正确性。",
+    "技能读取次数代表实际加载，不证明遵循了指导或结果正确；未加载的ON运行仍计入全部结果。"
+  ],
+  "paired": {
+    "answer_correct": {
+      "both_fail": 3,
+      "both_pass": 62,
+      "incomplete": 0,
+      "off_only": 2,
+      "on_only": 5
+    },
+    "delivery_completed": {
+      "both_fail": 4,
+      "both_pass": 62,
+      "incomplete": 0,
+      "off_only": 2,
+      "on_only": 4
+    },
+    "end_to_end": {
+      "both_fail": 4,
+      "both_pass": 57,
+      "incomplete": 0,
+      "off_only": 4,
+      "on_only": 7
+    }
+  },
+  "report_version": 1,
+  "representation_rescore": {
+    "arms": {
+      "off": {
+        "answer_correct": 64,
+        "delivery_completed": 64,
+        "end_to_end": 61,
+        "planned": 72,
+        "recorded": 72
+      },
+      "on": {
+        "answer_correct": 67,
+        "delivery_completed": 66,
+        "end_to_end": 64,
+        "planned": 72,
+        "recorded": 72
+      }
+    },
+    "available": true,
+    "complete": true,
+    "confidence_intervals": {
+      "answer_correct": {
+        "bootstrap_samples": 4000,
+        "cluster_definition": "CSV filename; shared underlying data families are not excluded.",
+        "complete_pairs": 72,
+        "confidence_level": 0.95,
+        "dataset_clusters": 24,
+        "excluded_incomplete_pairs": 0,
+        "lower": -0.041666666666666664,
+        "method": "dataset_cluster_percentile_bootstrap",
+        "on_minus_off": 0.041666666666666664,
+        "resampling_unit": "dataset",
+        "seed": 20261103,
+        "upper": 0.125
+      },
+      "delivery_completed": {
+        "bootstrap_samples": 4000,
+        "cluster_definition": "CSV filename; shared underlying data families are not excluded.",
+        "complete_pairs": 72,
+        "confidence_level": 0.95,
+        "dataset_clusters": 24,
+        "excluded_incomplete_pairs": 0,
+        "lower": -0.027777777777777776,
+        "method": "dataset_cluster_percentile_bootstrap",
+        "on_minus_off": 0.027777777777777776,
+        "resampling_unit": "dataset",
+        "seed": 20261103,
+        "upper": 0.09722222222222222
+      },
+      "end_to_end": {
+        "bootstrap_samples": 4000,
+        "cluster_definition": "CSV filename; shared underlying data families are not excluded.",
+        "complete_pairs": 72,
+        "confidence_level": 0.95,
+        "dataset_clusters": 24,
+        "excluded_incomplete_pairs": 0,
+        "lower": -0.06944444444444445,
+        "method": "dataset_cluster_percentile_bootstrap",
+        "on_minus_off": 0.041666666666666664,
+        "resampling_unit": "dataset",
+        "seed": 20261103,
+        "upper": 0.1527777777777778
+      }
+    },
+    "downgraded_trials": 0,
+    "new_model_calls": 0,
+    "new_tokens": 0,
+    "official": {
+      "off": {
+        "raw_unchanged": {
+          "ABQ": 0.0278,
+          "PASQ": 0.0278,
+          "UASQ": 0.027
+        },
+        "v2_original": {
+          "ABQ": 0.8889,
+          "PASQ": 0.8958,
+          "UASQ": 0.9099
+        },
+        "v3_rescored": {
+          "ABQ": 0.8889,
+          "PASQ": 0.8958,
+          "UASQ": 0.9099
+        }
+      },
+      "on": {
+        "raw_unchanged": {
+          "ABQ": 0.0278,
+          "PASQ": 0.0278,
+          "UASQ": 0.018
+        },
+        "v2_original": {
+          "ABQ": 0.9306,
+          "PASQ": 0.9306,
+          "UASQ": 0.9459
+        },
+        "v3_rescored": {
+          "ABQ": 0.9306,
+          "PASQ": 0.9306,
+          "UASQ": 0.9459
+        }
+      }
+    },
+    "paired": {
+      "answer_correct": {
+        "both_fail": 3,
+        "both_pass": 62,
+        "incomplete": 0,
+        "off_only": 2,
+        "on_only": 5
+      },
+      "delivery_completed": {
+        "both_fail": 4,
+        "both_pass": 62,
+        "incomplete": 0,
+        "off_only": 2,
+        "on_only": 4
+      },
+      "end_to_end": {
+        "both_fail": 4,
+        "both_pass": 57,
+        "incomplete": 0,
+        "off_only": 4,
+        "on_only": 7
+      }
+    },
+    "policy": "Uniform no-model representation correction derived from development cases; original scores and Agent outcomes retained, original usage counted once.",
+    "rescore_contract_sha256": "6092fc9c4b70803a2761041f6a94e14659f7170bd24b5ab10966f19e7cfd20ed",
+    "script_sha256": "fe01adb9623ae82a0a3d5cef2f73e15a6f4026c0aa9485141882c5e9f0b41045",
+    "source_contract_sha256": "4a493a176ea59eb4f9924e576425b2aea6606c6d9f6bf24b6f53d64079ca0aa7",
+    "upgraded_trials": 0,
+    "version": 3
+  },
+  "scorer_revision": "3d6c4a70198e0a41fadf539f5b43c88b8c1a2d9c",
+  "selection_policy": "First complete uninterrupted batch; incomplete environment-interrupted batches retained and excluded, never select the best score.",
+  "statement_audit": {
+    "audited_suite_sha256": "6a0fa015272dde6b7f07eeac788e0ecd5a28919510f970ddc1bf183e36d0cfa4",
+    "available": true,
+    "current_suite_sha256": "d539be5ea1961fe5946eb494f1c2b7b93e905d95178afe08b767e33354896864",
+    "heldout_definitions_unchanged": true,
+    "high_risk_case_ids": [
+      "DA33",
+      "DA337",
+      "DA496",
+      "DA542",
+      "DA590"
+    ],
+    "policy": "Statement-only audit; no question changed, failure waived, or score increased.",
+    "risk_counts": {
+      "high": 5,
+      "low": 4,
+      "medium": 7,
+      "none": 8
+    }
+  },
+  "strict_all_repeats": {
+    "answer_correct": {
+      "off": {
+        "complete_cases": 24,
+        "passed_cases": 19,
+        "planned_cases": 24,
+        "rate_planned": 0.7916666666666666
+      },
+      "on": {
+        "complete_cases": 24,
+        "passed_cases": 21,
+        "planned_cases": 24,
+        "rate_planned": 0.875
+      }
+    },
+    "delivery_completed": {
+      "off": {
+        "complete_cases": 24,
+        "passed_cases": 19,
+        "planned_cases": 24,
+        "rate_planned": 0.7916666666666666
+      },
+      "on": {
+        "complete_cases": 24,
+        "passed_cases": 21,
+        "planned_cases": 24,
+        "rate_planned": 0.875
+      }
+    },
+    "end_to_end": {
+      "off": {
+        "complete_cases": 24,
+        "passed_cases": 18,
+        "planned_cases": 24,
+        "rate_planned": 0.75
+      },
+      "on": {
+        "complete_cases": 24,
+        "passed_cases": 20,
+        "planned_cases": 24,
+        "rate_planned": 0.8333333333333334
+      }
+    }
+  }
+}
