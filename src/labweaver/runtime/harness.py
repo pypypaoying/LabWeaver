@@ -7,6 +7,7 @@ import time
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from labweaver.runtime.evidence import _message_content, _trace_messages
+from labweaver.runtime.token_usage import cache_measurements, context_footprint
 
 
 class HarnessRejected(RuntimeError):
@@ -106,6 +107,9 @@ class ExecutionHarness(AgentMiddleware):
             raise HarnessRejected("invalid_tool_configuration")
         start = time.monotonic()
         call = self.model_calls
+        system_content = (_message_content(request.system_message)
+                          + "\n当前开放工具：" + ", ".join(sorted(names)) + self.context())
+        footprint = context_footprint(request.messages, system_content, allowed)
         self.progress({"type": "model_start", "role": self.role, "call": call,
                        "started_monotonic": start})
         try:
@@ -113,10 +117,7 @@ class ExecutionHarness(AgentMiddleware):
                 request.override(
                     tools=allowed,
                     system_message=SystemMessage(
-                        content=_message_content(request.system_message)
-                        + "\n当前开放工具："
-                        + ", ".join(sorted(names))
-                        + self.context()
+                        content=system_content
                     ),
                 )
             )
@@ -131,7 +132,9 @@ class ExecutionHarness(AgentMiddleware):
         usages = [getattr(m,"usage_metadata",None) for m in response.result]
         known = [u for u in usages if isinstance(u,dict) and all(type(u.get(k)) is int and u[k]>=0 for k in ("input_tokens","output_tokens","total_tokens"))]
         usage = {k:sum(u[k] for u in known) for k in ("input_tokens","output_tokens","total_tokens")} if known and len(known)==len(usages) else None
-        self.token_usage.append({"call":call,"role":self.role,"usage":usage})
+        self.token_usage.append({"call":call,"role":self.role,"usage":usage,
+                                 "cache_usage":cache_measurements(response.result),
+                                 "context_bytes":footprint})
         self.progress({"type": "model_end", "role": self.role, "call": call,
                        "status": "completed", "finish_reason": reason, "usage": usage,
                        "elapsed_seconds": round(time.monotonic() - start, 3)})

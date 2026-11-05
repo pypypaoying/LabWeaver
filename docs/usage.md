@@ -134,6 +134,8 @@ v2评测已达到数值门槛，仍有未达成案例，详见[v2完整结果](.
 
 项目内含四个经过适配的只读技能：数据探索、统计分析、可视化、交付检查。它们提供专业方法参考，不直接执行统计。主 Agent 在完成 CSV 概览后、代码 Agent 在获授权委派后，可以自行选择 `read_skill(skill_id)`。正文只在实际读取时进入模型上下文；简单概览无需加载。
 
+主、代码 Agent 沿用原技能目录和按需读取流程。角色分流曾作为token优化候选实验，但首轮未达采纳门槛，已保守撤回；没有把它作为已验证收益发布。
+
 当前作为可选能力，默认关闭。在项目 `labweaver.toml` 或被忽略的 `labweaver.local.toml` 的 `[intake]` 中设置：
 
 ```toml
@@ -148,3 +150,11 @@ skills_enabled = true
 技能来自固定版本的公开 Anthropic Data Analyst Plugin，已翻译、缩写并适配字段ID、现有库和 `emit_*` 协议。许可证与修改归属随 Python 包保存于 `src/labweaver/skills/`；这些说明文件不进入模型上下文。没有直接安装 Claude 插件或更换模型。
 
 受控试验：`python evaluation/skills_pilot.py --run --output .cache/evaluation/skills-pilot-new` 执行8个独立合成任务、开关各3次共48次，须先启动Docker并配置后端 `LLM_*` 或被引用的 `.env`；脚本不自动采用页面当前选择的模型。用 `--report --output 同一目录` 查看汇总。复现新版本请使用新的空目录；同一目录仅恢复原快照、跳过已有试次，保留全部失败。它不是离线演示，不能仅凭技能被读取就断言完成率提高。
+
+## Token 效率
+
+常规入口在Skills关闭时自动使用单份结构化委派包、阶段性工具及建模规则、精简成果回执。Skills开启时保留基线模型上下文；两轮开发实验中的全局压缩候选未通过该模式的交付门槛，没有为了降耗强行启用。沿用原Skills开关，不需要新配置；报告的model_context_policy说明实际策略。完整数据、代码、图表、来源及核验证据保存在宿主；模型可按成果ID读取更多。显示省略或preview_only的内容不能当作完整结果。
+
+运行JSON的每次 `token_usage` 保留接口实际返回的输入/输出/总token，并新增 `cache_usage`。供应商未返回缓存计数时为null，不能理解为零或直接换算费用。`context_bytes`仅是逻辑请求各部分的UTF-8字节数，不是精确分词或计费归因；不记录原始请求或认证信息。
+
+开发计划、采纳门槛和后续实验见[Token效率](token-efficiency.md)。长历史压缩、脚本补丁和单Agent路由尚待独立验收。

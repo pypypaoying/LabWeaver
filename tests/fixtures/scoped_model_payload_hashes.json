@@ -1,0 +1,127 @@
+{
+  "recipe": "scoped-model-payloads/public-two-task-three-delegation/v1",
+  "scope": "Exact messages and bind_tools schemas for this finite public recipe only.",
+  "normalization": "UUID identities in occurrence order; fixed CSV basename and execution IDs; JSON text unchanged.",
+  "references": {
+    "skills_off": {
+      "source": "token-efficiency-off-v3/candidate/implementation/src",
+      "implementation_sha256": {
+        "agent.py": "1b90a97f6e92d6dedcbac8de6c497763de07d0f4569926483d3cda51abb06a0e",
+        "analysis.py": "4c4dddc9f75059f136c6190cdfe2f526a84efc09f38554a92a72957f723b12c3"
+      },
+      "sha256": {
+        "main.bindings": [
+          "f3c6066241e5e07395167bb116eca5469d2afb88ab345e28d8835a4c1248dd46",
+          "a2d3a7c847d52c930a51ad04ad392d1ad1a620cc975561a5667193d136d8ba48",
+          "937fda8e9c5e887988be6369a3e961ee99e19baaae4ccf83cf72c7c3a3e6dd56",
+          "5dbe02920a6b5e883377370afcc836201e06eae5b0b3ecf56c55cea3e7fad4aa",
+          "5dbe02920a6b5e883377370afcc836201e06eae5b0b3ecf56c55cea3e7fad4aa",
+          "5dbe02920a6b5e883377370afcc836201e06eae5b0b3ecf56c55cea3e7fad4aa",
+          "4c7ee938cf897aeee2bb70e42540cc6cdef179046c383d8c13a3bec9492be6f7",
+          "5dbe02920a6b5e883377370afcc836201e06eae5b0b3ecf56c55cea3e7fad4aa",
+          "5dbe02920a6b5e883377370afcc836201e06eae5b0b3ecf56c55cea3e7fad4aa",
+          "5dbe02920a6b5e883377370afcc836201e06eae5b0b3ecf56c55cea3e7fad4aa"
+        ],
+        "main.requests": [
+          "94da3ea0fb9a3491e3e42539f649af9ed78df16d3620bb5ee350ad99dc4830df",
+          "32c2c07bbd94ed9ddeb69c4202bbb255b02a2cf2e961100bcce3642c9705b2e0",
+          "61a1c7c5c2509711017107b33d47ab19fa7653146f74d3a6b863f7110d7ac06a",
+          "f8a8552a7623797d7c5cf5365dcccc4204bb1a123db5c3e301b37cc21d033fca",
+          "0c86ee698f0b87c395f6b0ff0c4ed00179c58980186faec51bd2f690715a3173",
+          "41066b02ae61ce822ddb4d7ee3ccf844f65c1f2b1d48949daed6fc9505d0d8bc",
+          "187795afaba1e8a89c9ad575635d826c4cb3214a5a24436ee3205e7eb43b00ff",
+          "38e80f8f885535bd5ac775326a7d8017723f35b43cbc0f18f26db8c108d25d46",
+          "80422363a5e2e3284980bc1cc4d9e99b0cd58281770befd75fcd1861234a5e82",
+          "c4aff544d7c45be577c503ec0c317b483ea2d0f10a49806a1df71e982692d6a8"
+        ],
+        "analysis.bindings": [
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a",
+          "4fcbe2a4f58ba425d05180e3c210f65e4444efe8bf86843da82a2874b0b91f9a"
+        ],
+        "analysis.requests": [
+          "d79cb4c889e319f6a21a6fbfff2dbdee2d45e15eff9bae2e97e9c3866eb22037",
+          "14c4e7cf9c067081c22907334811211824d96e50b3ff8430d10880876200bf16",
+          "bfc7a4440ca5f163f6e251033c5304418cb30f9ff79fbcaf66d8acd1d0cd8833",
+          "c770a7aad51d921380f9163eaf116dcf15ab32746b4e7bee818cc53e712923bc",
+          "cbf4d1c9b4e990623abba45e34223be3e1b2c2f9df73ef484b0f346fffc3ea66",
+          "e3981bc9fbd90f7e243eb4079da0547f0fe8a4c078a62df90022ff6015582efe",
+          "cc8a1ba7f4fba0e504a195e0f9ac0ae287e67b63e7460627de356ed15843878f",
+          "8b49655add685bdf7adc41de010ad5466a77c764b9137d7d78a358da4508447c",
+          "1ebb95adc9475a93623f92a11779d19954144986881203c8eff060dca74f5b56"
+        ]
+      }
+    },
+    "skills_on": {
+      "source": "token-efficiency-v1/baseline/implementation/src",
+      "implementation_sha256": {
+        "agent.py": "bc4fd1630654a9a9321c97545f7a9b784af16530121e46ea246a2207f61d129b",
+        "analysis.py": "b93219bba1bee3f692c5278f9283ca8c14f03cb6ad5828dd5e9eb88fe775149b"
+      },
+      "sha256": {
+        "main.bindings": [
+          "f3c6066241e5e07395167bb116eca5469d2afb88ab345e28d8835a4c1248dd46",
+          "59d1e5f61f189a9b4aecc86405713c5e0b018137bdd5237b88f408dad3141916",
+          "59d1e5f61f189a9b4aecc86405713c5e0b018137bdd5237b88f408dad3141916",
+          "debcb3332a9c50dd516723b79aec75976b2546992c49034a32834eea44ea694e",
+          "1db83fbf13197691824e33e5c64d91fd164fa68a8d5441f0ae2686548a67ed35",
+          "1db83fbf13197691824e33e5c64d91fd164fa68a8d5441f0ae2686548a67ed35",
+          "1db83fbf13197691824e33e5c64d91fd164fa68a8d5441f0ae2686548a67ed35",
+          "8deb7c082fd4e9b2d9b9cbf88ba660ad1bc488baf0237edabd30aa58db834cb7",
+          "8deb7c082fd4e9b2d9b9cbf88ba660ad1bc488baf0237edabd30aa58db834cb7",
+          "1db83fbf13197691824e33e5c64d91fd164fa68a8d5441f0ae2686548a67ed35",
+          "1db83fbf13197691824e33e5c64d91fd164fa68a8d5441f0ae2686548a67ed35",
+          "1db83fbf13197691824e33e5c64d91fd164fa68a8d5441f0ae2686548a67ed35"
+        ],
+        "main.requests": [
+          "e8e489989acaae4476dae9a2a304b74064cd7cc76f1a14fb15c9aa98989e8bd5",
+          "b1c2f60de994218bbb35db6b22b7f45fe3717abc465781418afafe59740e56af",
+          "56a4759b608a14e713d1ac7fc6d2e6beb05cfc94aecbf67d92c646b7ee5d3052",
+          "42e12512ec504432347daac0b46b213d3b10f10b08559af6bfb551e30206a277",
+          "d49c2d35544c3d6e9b9c49409d901e1d0e6b34799bcf66320e61fad0867d1eae",
+          "4a4c24dde60512761b31c8dab3e6a27b772a042e20a046ee2233f133d77ef6b7",
+          "92128ecdcc4963b8d97a8e68180e56a4ca9ce7dd098238fb1badda54d4f66d32",
+          "8b6f49b82bf859625101a060f50d453ff13e7a83b394a23d4a2835710e10e8dd",
+          "00f2b872934594cacd1fcf4e80493cbc335184f8fe3b24490d671a2001b25afb",
+          "88f5d5fcbf76d1ff27f6215b4c99ae114701e521b63004545e89081689c98026",
+          "5bf806f40ce2244a8e391d69470db34e0668afc58760e32160c4bfb9ada70acc",
+          "ab787f431ddc029ea55371ba017e49fde376a53a47fdd41068123a200450281a"
+        ],
+        "analysis.bindings": [
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b",
+          "daa487c6bc6d0215b78afccf95fff0366e0ac0e1f09c4d775fcdc2d87d70435b"
+        ],
+        "analysis.requests": [
+          "7bf94b488f49302c5ef8f853fb10c95eaec5819e02bca03fcea7b393f4cfb383",
+          "33675d6e030b1720bd17804e9388ab6e55c60c2f508df9e2bac258d672592fdc",
+          "82fcfb08988ef2774bb76aa188917bf5baa68858b54a67dea8965f322faf07c4",
+          "3368ed2328e4f9d179e93f263acfbe561662bf995878d68e21df1ccefbf1e78f",
+          "199ad0e76639e9ab4eceaaf49206a4c02342fb794cf525c999635d85922c5fa4",
+          "b7238b87212c90c95b4ae885db3263725852861b1b22f132e86ecc27671a85cb",
+          "f5709abeb4601115f68132e0bb2e360fe3293e1e2de36d8512237f17d57e0187",
+          "d0afa1370199c72d4bd7ac17c7d2268f95ae7c4150119c4220cb63c1748ac4e7",
+          "8d4a41cf82a99f3a2f1d1f598672304c1af2fdb8080282b46e6feabd0a7895b4",
+          "f0be6743cb35c0c10e2b45b0e6930496d43b5bbb1244f25673b1db3b0c178de9",
+          "57d1321d5bffd04c93ac9ac822747daa205a5782dbe37a761cd332c589a8eeed",
+          "ffc657386648ea909bda6dfbe4b3a0f27c8f54926eb9079fce7accae5f6387b4"
+        ]
+      }
+    }
+  }
+}

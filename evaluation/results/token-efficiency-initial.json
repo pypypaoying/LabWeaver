@@ -1,0 +1,351 @@
+{
+  "adoption": "rejected",
+  "batches": {
+    "off": {
+      "accounting": "All planned trials remain in success denominators. Known token totals are lower bounds when usage is incomplete; missing usage and cache hits are not zero. Both-passed token ratios describe a selected subset.",
+      "all_planned_token_reduction_fraction": 0.09867986497997927,
+      "both_passed_paired_tokens": {
+        "baseline": 439046,
+        "candidate": 395721
+      },
+      "both_passed_token_reduction_fraction": 0.09867986497997927,
+      "boundary": "Four public development regressions, not an untouched holdout or external benchmark. Two repeats are correlated; no statistical significance or universal improvement claimed. Independent output oracles do not prove every narrative claim or absence of training leakage.",
+      "by_case": {
+        "S1": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          }
+        },
+        "S2": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          }
+        },
+        "S5": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          }
+        },
+        "S7": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          }
+        }
+      },
+      "cases": [
+        "S1",
+        "S2",
+        "S5",
+        "S7"
+      ],
+      "complete": true,
+      "contract_sha256": "582f217fbd2f80fbf3e36e11be8e2be891dacd3a9bd158d04b142f47f0a7be19",
+      "fully_metered_complete_comparison": true,
+      "model_options": {
+        "analysis_max_tokens": 12288,
+        "main_max_tokens": 4096,
+        "max_retries": 0,
+        "temperature": 0
+      },
+      "paired": {
+        "baseline_only_passed": 0,
+        "both_failed": 0,
+        "both_passed": 8,
+        "both_passed_fully_metered_pairs": 8,
+        "candidate_only_passed": 0,
+        "fully_metered_pairs": 8,
+        "incomplete_pairs": 0
+      },
+      "planned_trials": 16,
+      "protocol_sha256": "d7638b113385804967c19a7066b245deabb5b040121a801324cbb827972f94aa",
+      "repetitions": 2,
+      "skills_enabled": false,
+      "source_sha256": {
+        "baseline": "8efe803c0af68c9c976c32ff2e9e98536185a23cf56dfe6b2b26759cf5a0cf19",
+        "candidate": "95b8e8d49cf64ddb77775bebc6c2775ff274603dc6d77e354f322a951672f1fe"
+      },
+      "trial_timeout_seconds": 900,
+      "variants": {
+        "baseline": {
+          "analysis_model_calls": 24,
+          "attained": 8,
+          "cache_usage_complete": false,
+          "cached_input_tokens": null,
+          "context_bytes": {
+            "message_bytes": {
+              "known_sum": null,
+              "measured_calls": 0,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "system_bytes": {
+              "known_sum": null,
+              "measured_calls": 0,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "tool_schema_bytes": {
+              "known_sum": null,
+              "measured_calls": 0,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            }
+          },
+          "failed": 0,
+          "first_attempt_attained": 1,
+          "known_cached_input_tokens": null,
+          "known_input_tokens": 398353,
+          "known_output_tokens": 40693,
+          "known_total_tokens": 439046,
+          "median_seconds": 33.3125,
+          "missing": 0,
+          "model_calls": 46,
+          "planned": 8,
+          "recorded": 8,
+          "success_rate_planned": 1.0,
+          "unknown_usage_calls": 0,
+          "usage_complete_trials": 8,
+          "usage_unmeasured_trials": 0
+        },
+        "candidate": {
+          "analysis_model_calls": 24,
+          "attained": 8,
+          "cache_usage_complete": true,
+          "cached_input_tokens": 232576,
+          "context_bytes": {
+            "message_bytes": {
+              "known_sum": 816263,
+              "measured_calls": 74,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "system_bytes": {
+              "known_sum": 329062,
+              "measured_calls": 74,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "tool_schema_bytes": {
+              "known_sum": 100936,
+              "measured_calls": 74,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            }
+          },
+          "failed": 0,
+          "first_attempt_attained": 0,
+          "known_cached_input_tokens": 232576,
+          "known_input_tokens": 348518,
+          "known_output_tokens": 47203,
+          "known_total_tokens": 395721,
+          "median_seconds": 35.5,
+          "missing": 0,
+          "model_calls": 50,
+          "planned": 8,
+          "recorded": 8,
+          "success_rate_planned": 1.0,
+          "unknown_usage_calls": 0,
+          "usage_complete_trials": 8,
+          "usage_unmeasured_trials": 0
+        }
+      },
+      "version": 1
+    },
+    "on": {
+      "accounting": "All planned trials remain in success denominators. Known token totals are lower bounds when usage is incomplete; missing usage and cache hits are not zero. Both-passed token ratios describe a selected subset.",
+      "all_planned_token_reduction_fraction": 0.054314765592338166,
+      "both_passed_paired_tokens": {
+        "baseline": 369973,
+        "candidate": 266554
+      },
+      "both_passed_token_reduction_fraction": 0.2795312090341727,
+      "boundary": "Four public development regressions, not an untouched holdout or external benchmark. Two repeats are correlated; no statistical significance or universal improvement claimed. Independent output oracles do not prove every narrative claim or absence of training leakage.",
+      "by_case": {
+        "S1": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          }
+        },
+        "S2": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          }
+        },
+        "S5": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          }
+        },
+        "S7": {
+          "baseline": {
+            "attained": 2,
+            "planned": 2,
+            "recorded": 2
+          },
+          "candidate": {
+            "attained": 1,
+            "planned": 2,
+            "recorded": 2
+          }
+        }
+      },
+      "cases": [
+        "S1",
+        "S2",
+        "S5",
+        "S7"
+      ],
+      "complete": true,
+      "contract_sha256": "2d0df5eb93354d7b51e4c73bfd2567555ece0d2d2f7c18a5f75ae1dbdcdc35e5",
+      "fully_metered_complete_comparison": true,
+      "model_options": {
+        "analysis_max_tokens": 12288,
+        "main_max_tokens": 4096,
+        "max_retries": 0,
+        "temperature": 0
+      },
+      "paired": {
+        "baseline_only_passed": 1,
+        "both_failed": 0,
+        "both_passed": 7,
+        "both_passed_fully_metered_pairs": 7,
+        "candidate_only_passed": 0,
+        "fully_metered_pairs": 8,
+        "incomplete_pairs": 0
+      },
+      "planned_trials": 16,
+      "protocol_sha256": "533155b36d2d0e3d8c999dd4097254d4e76a72e271ed30ac366364d216b2ab32",
+      "repetitions": 2,
+      "skills_enabled": true,
+      "source_sha256": {
+        "baseline": "8efe803c0af68c9c976c32ff2e9e98536185a23cf56dfe6b2b26759cf5a0cf19",
+        "candidate": "95b8e8d49cf64ddb77775bebc6c2775ff274603dc6d77e354f322a951672f1fe"
+      },
+      "trial_timeout_seconds": 900,
+      "variants": {
+        "baseline": {
+          "analysis_model_calls": 24,
+          "attained": 8,
+          "cache_usage_complete": false,
+          "cached_input_tokens": null,
+          "context_bytes": {
+            "message_bytes": {
+              "known_sum": null,
+              "measured_calls": 0,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "system_bytes": {
+              "known_sum": null,
+              "measured_calls": 0,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "tool_schema_bytes": {
+              "known_sum": null,
+              "measured_calls": 0,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            }
+          },
+          "failed": 0,
+          "first_attempt_attained": 0,
+          "known_cached_input_tokens": null,
+          "known_input_tokens": 487171,
+          "known_output_tokens": 34271,
+          "known_total_tokens": 521442,
+          "median_seconds": 32.4925,
+          "missing": 0,
+          "model_calls": 52,
+          "planned": 8,
+          "recorded": 8,
+          "success_rate_planned": 1.0,
+          "unknown_usage_calls": 0,
+          "usage_complete_trials": 8,
+          "usage_unmeasured_trials": 0
+        },
+        "candidate": {
+          "analysis_model_calls": 28,
+          "attained": 7,
+          "cache_usage_complete": true,
+          "cached_input_tokens": 316544,
+          "context_bytes": {
+            "message_bytes": {
+              "known_sum": 1025420,
+              "measured_calls": 79,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "system_bytes": {
+              "known_sum": 415668,
+              "measured_calls": 79,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            },
+            "tool_schema_bytes": {
+              "known_sum": 129768,
+              "measured_calls": 79,
+              "measurement": "logical_utf8_bytes_not_provider_tokens"
+            }
+          },
+          "failed": 1,
+          "first_attempt_attained": 0,
+          "known_cached_input_tokens": 316544,
+          "known_input_tokens": 444158,
+          "known_output_tokens": 48962,
+          "known_total_tokens": 493120,
+          "median_seconds": 32.445499999999996,
+          "missing": 0,
+          "model_calls": 51,
+          "planned": 8,
+          "recorded": 8,
+          "success_rate_planned": 0.875,
+          "unknown_usage_calls": 0,
+          "usage_complete_trials": 8,
+          "usage_unmeasured_trials": 0
+        }
+      },
+      "version": 1
+    }
+  },
+  "experiment": "Initial token-efficiency candidate",
+  "reason": "Skills ON candidate 7/8 versus baseline 8/8; all trial costs retained"
+}

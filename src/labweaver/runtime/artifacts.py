@@ -274,3 +274,37 @@ def artifact_receipts(assets):
         receipts.append(view)
         total += size
     return receipts
+
+
+def model_artifact_view(asset, offset=0, limit=20):
+    """Project a registered result for a model; full provenance stays on the host."""
+    meta = asset["metadata"]
+    view = {**{key: meta[key] for key in ("id", "kind", "deliverable_id", "label", "source")},
+            **artifact_view(asset, offset=offset, limit=limit)}
+    keys = {
+        "status", "id", "data_id", "kind", "deliverable_id", "label", "source",
+        "value", "columns", "rows", "row_count", "available_row_count", "page",
+        "preview_only", "view_error", "notice",
+    }
+    return {key: value for key, value in view.items() if key in keys}
+
+
+def model_artifact_receipts(assets):
+    """Small default receipts, with explicit pointers for omitted values.
+
+    This is a model context budget, never a limit on computed/exported rows.
+    Explicit read_artifact calls retain the existing larger paged view.
+    """
+    receipts, total = [], 0
+    for asset in assets:
+        view = model_artifact_view(asset, limit=5)
+        size = len(json.dumps(view, ensure_ascii=False, allow_nan=False).encode())
+        if size > 4096 or total + size > 8192:
+            meta = asset["metadata"]
+            view = {key: meta[key] for key in ("id", "kind", "deliverable_id", "label", "source")}
+            view.update(status="completed", preview_only=True,
+                        row_count=meta.get("row_count"),
+                        notice="Read this artifact by ID for values/rows; full output is saved.")
+        receipts.append(view)
+        total += len(json.dumps(view, ensure_ascii=False, allow_nan=False).encode())
+    return receipts

@@ -63,3 +63,22 @@ Development also exposed two representation errors: literal copies of the public
 The initial heldout batch `.cache/evaluation/skills-dabench-v2/` stopped at 38/144 following multi-hour clock jumps, model connection failures and a Docker preflight timeout. Its records remain intact. The complete comparison is collected separately under `.cache/evaluation/skills-dabench-v4/`, with byte-identical source, inputs and evaluation contract; use the first complete uninterrupted batch, never select the best-scoring batch. The local supervisor holds a temporary Windows system-awake request and stops between trials after transport failure. `--interrupted-batch <path>` discloses abandoned-batch usage separately instead of hiding it or pooling it into the Skills estimate.
 
 CSV-name separation is not data-family separation. The selected 24 CSV paths contain 23 distinct byte contents; three heldout files and one development file belong to the Titanic family. The Agent/prompt was not tuned on development outputs, but this still limits independence. `evaluation/results/skills-dabench-data-audit.json` documents this source-only audit. Pass `--data-audit` to the report exporter for byte-content/known-family clustering sensitivity intervals alongside the original CSV-cluster interval. No selected questions or failures are removed, and the family audit is not exhaustive.
+
+## Token-efficiency development comparison
+
+`token_efficiency.py` compares frozen baseline/candidate packages with the same model, image and budgets. Four already-known public development tasks cover grouped statistics, daily totals, actual plotting and mixed-feature classification. Two repeats per version give 16 trials. Skills OFF and ON use separate immutable output directories; they are not pooled into an external-quality score.
+
+Extract the baseline without changing your working checkout, then prepare a new batch:
+
+```powershell
+New-Item -ItemType Directory -Force .cache | Out-Null
+git archive --format=zip --output=.cache/token-baseline.zip 4c3accf19ba5ea0df71cfc027d91a4e0ddc1b9eb src
+uv run python -m zipfile -e .cache/token-baseline.zip .cache/token-baseline
+uv run python evaluation/token_efficiency.py --prepare --output .cache/evaluation/token-new-off --baseline-source .cache/token-baseline/src --candidate-source src
+uv run python evaluation/token_efficiency.py --run --output .cache/evaluation/token-new-off
+uv run python evaluation/token_efficiency.py --report --output .cache/evaluation/token-new-off
+```
+
+Prepare a different directory with `--skills` for ON. Preparation/reporting do not call models; `--run` uses configured credentials and real local Docker. The first run freezes model/image/runtime identity. Started trials cannot silently be resubmitted; all failures, save errors and missing runs remain visible. Sources/evaluators may not change mid-batch. The independent oracle checks exported full tables, metrics, plotting data and sample/label/prediction evidence, not completion text.
+
+Report input/output and actual cache receipts separately. Baseline logs without cache fields are unknown, not zero. Logical request bytes are not exact provider-token attribution. Local elapsed time is not a speed benchmark. The two-repeat development set is too small and familiar to establish general or statistically significant gains. Report all iterations, including rejected candidates, and use a new untouched validation set for broader claims. The development/adoption plan is in [Token efficiency](../docs/token-efficiency.md).
